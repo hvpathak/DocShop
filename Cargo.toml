@@ -1,0 +1,40 @@
+[workspace]
+resolver = "3"
+members = ["crates/core", "apps/harshpad", "apps/harshpad-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/hvpathak/HarshPad"
+
+[workspace.dependencies]
+harshpad-core = { path = "crates/core" }
+eframe = "0.31"
+rfd = "0.15"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+# Never crash: these are allowed in tests only (see clippy.toml).
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+indexing_slicing = "deny"
+dbg_macro = "warn"
+
+# Disk is tight on this machine: skip debug info in dev builds (roughly halves target/).
+[profile.dev]
+debug = false
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
