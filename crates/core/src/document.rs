@@ -220,10 +220,7 @@ mod tests {
     use super::*;
 
     fn temp_file(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "harshpad-test-{}-{name}",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("harshpad-test-{}-{name}", std::process::id()))
     }
 
     #[test]

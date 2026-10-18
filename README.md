@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon-256.png" alt="HarshPad icon: a blue spiral notepad with the letters HP" width="128">
+</p>
+
 <h1 align="center">HarshPad</h1>
 
 <p align="center">
@@ -17,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://github.com/hvpathak/HarshPad/releases/download/v0.1.0/screenshot.png" alt="HarshPad showing a welcome file, with the File, Edit, Format, View and Help menus and a status bar reading Ln 1, Col 1, 100%, Windows (CRLF), UTF-8" width="100%">
+  <img src="https://github.com/hvpathak/HarshPad/releases/download/v0.1.1/screenshot.png" alt="HarshPad with its blue notepad icon in the title bar, showing a welcome file, with the File, Edit, Format, View and Help menus and a status bar reading Ln 1, Col 1, 100%, Windows (CRLF), UTF-8" width="100%">
 </p>
 
 ---
@@ -103,7 +107,8 @@ apps/harshpad-cli  the same engine from the command line
 - [ ] Tabs
 - [ ] Go To Line (Ctrl+G) and Time/Date (F5)
 - [ ] Print
-- [ ] App icon and code signing
+- [x] App icon
+- [ ] Code signing
 - [ ] Colour emoji
 - [ ] Light / dark theme switch
 
