@@ -185,6 +185,46 @@ impl TextTab {
         self.caret = end;
     }
 
+    // ---- Ribbon actions ----------------------------------------------------------------
+
+    /// Types `text` at the caret.
+    pub fn insert_text(&mut self, ctx: &egui::Context, text: &str) {
+        let at = text_pos::byte_index(&self.session.doc.text, self.caret);
+        self.session.doc.text.insert_str(at, text);
+        self.record(EditKind::Other);
+        self.session.text_edited();
+        let end = at + text.len();
+        self.select(ctx, &(end..end));
+    }
+
+    pub fn select_all(&mut self, ctx: &egui::Context) {
+        let len = self.session.doc.text.len();
+        self.select(ctx, &(0..len));
+    }
+
+    /// Word Count window rows.
+    pub fn stats(&self) -> Vec<(&'static str, String)> {
+        let text = &self.session.doc.text;
+        vec![
+            ("Lines", self.session.doc.line_count().to_string()),
+            ("Words", self.word_count().to_string()),
+            (
+                "Characters (no spaces)",
+                text.chars()
+                    .filter(|c| !c.is_whitespace())
+                    .count()
+                    .to_string(),
+            ),
+            (
+                "Characters (with spaces)",
+                text.chars()
+                    .filter(|c| *c != '\n' && *c != '\r')
+                    .count()
+                    .to_string(),
+            ),
+        ]
+    }
+
     // ---- Drawing ---------------------------------------------------------------------
 
     pub fn ui(&mut self, ui: &mut egui::Ui, font_size: f32) {

@@ -1,8 +1,8 @@
-# WordCraft parity with Microsoft Word
+# WordCraft parity with [vendor] Word
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-16 · **Change:** trivial (shapes inserted in a row are all kept, #2019; previously trivial: East Asian typography: `w:eastAsianLayout` kept on save, not laid out; previously trivial: Ink to Shape recognises arrows; previously trivial: Windows Magnifier follows the caret onto a new line, #1119; previously trivial: table border drags with Ctrl and Alt, from the left edge and of selected cells, #711; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: all 12 bibliography styles, #383; previously trivial: formatting revisions landed, #41; previously trivial: Draw Table and Eraser landed, #303; previously minor: readiness table with hours per audience; full number back to the additive weighted sum, 60%; mainstream and essentials numbers added; alpha gate checked; previously major: full re-measure against Word for Mac 16.113.4; replaces the parity tables that lived in ROADMAP.md) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-16 · **Change:** trivial (shapes inserted in a row are all kept, #2019; previously trivial: East Asian typography: `w:eastAsianLayout` kept on save, not laid out; previously trivial: Ink to Shape recognises arrows; previously trivial: Windows Magnifier follows the caret onto a new line, #1119; previously trivial: table border drags with Ctrl and Alt, from the left edge and of selected cells, #711; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: all 12 bibliography styles, #383; previously trivial: formatting revisions landed, #41; previously trivial: Draw Table and Eraser landed, #303; previously minor: readiness table with hours per audience; full number back to the additive weighted sum, 60%; mainstream and essentials numbers added; alpha gate checked; previously major: full re-measure against Word for Mac 16.113.4; replaces the parity tables that lived in ROADMAP.md) · **Target:** [vendor] Word ([vendor] 365) for Mac 16.113.4
 
-The authoritative assessment of how close WordCraft is to Microsoft Word. [`ROADMAP.md`](../ROADMAP.md)
+The authoritative assessment of how close WordCraft is to [vendor] Word. [`ROADMAP.md`](../ROADMAP.md)
 summarizes it; [`gaps.md`](gaps.md) itemizes every shortfall; the deep checklists are
 [`file-format-parity.md`](file-format-parity.md), [`layout-parity.md`](layout-parity.md),
 [`typing-parity.md`](typing-parity.md), [`ui-parity.md`](ui-parity.md),
@@ -29,8 +29,8 @@ The generated ribbon checklist is [`parity-checklist.md`](parity-checklist.md).
 
 ## What we measured against
 
-- **Microsoft Word for Mac 16.113.4** (Microsoft 365 subscription build, installed on the owner's Mac
-  at `/Applications/Microsoft Word.app`; version read with `mdls`, bundle modified 2026-10-06).
+- **[vendor] Word for Mac 16.113.4** ([vendor] 365 subscription build, installed on the owner's Mac
+  at `/Applications/[vendor] Word.app`; version read with `mdls`, bundle modified 2026-10-06).
 - Inspected black-box, by **file listing only**, as `AGENTS.md` § Clean room requires (no bundle file
   was opened or read): 31 `.lproj` folders (30 interface languages plus Base), 120 proofing tools
   under `SharedSupport/Proofing Tools` (spellers, grammars, hyphenators and thesauri for ~50
@@ -39,8 +39,8 @@ The generated ribbon checklist is [`parity-checklist.md`](parity-checklist.md).
   11 Quick Style sets plus Word 2010, Office themes, a PDF print-dialog extension (`WordPDE.plugin`),
   ink rendering (`InkRender.bundle`), a Copilot backstage bundle, and text converters (Excel 2.x–11,
   Recover Text).
-- Word's file formats, ribbon, dialogs and keyboard shortcuts from Microsoft's public documentation
-  and our knowledge of Word for Windows and Mac (Microsoft 365). Windows-only features (PDF Reflow
+- Word's file formats, ribbon, dialogs and keyboard shortcuts from [vendor]'s public documentation
+  and our knowledge of Word for Windows and Mac ([vendor] 365). Windows-only features (PDF Reflow
   open, Works/WordPerfect import) are counted, because a Word user on Windows expects them.
 - WordCraft as it is on origin/main today: source (catalog, command registry, readers/writers,
   layout), tests, the i18n catalogs, open issues (62 as of 2026-10-10) and open PRs (~45 as of 2026-10-10), git history.

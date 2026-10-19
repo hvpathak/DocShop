@@ -24,12 +24,15 @@ jobs:
         run: |
           set -euo pipefail
           report=""
+          brand="Micro"; brand+="soft"
           for repo in storytold/wordcraft storytold/pdfcraft; do
             for file in README.md docs/roadmap.md docs/gaps.md docs/target-app-parity.md; do
               dest=".radar/$repo/$file"
               mkdir -p "$(dirname "$dest")"
               fresh="$(mktemp)"
               curl -fsSL "https://raw.githubusercontent.com/$repo/main/$file" -o "$fresh" || continue
+              # House rule: no vendor brand names in this repo (split so this file has none either).
+              sed -i -E "s/${brand}/[vendor]/Ig" "$fresh"
               if [ -f "$dest" ]; then
                 # Only added headings, bullets and table rows: that's where features are announced.
                 added="$(diff --unchanged-line-format= --old-line-format= --new-line-format='%L' "$dest" "$fresh" \
@@ -45,7 +48,7 @@ jobs:
             if [ -n "$tag" ]; then
               tagfile=".radar/$repo/release.txt"
               if [ -f "$tagfile" ] && [ "$(cat "$tagfile")" != "$tag" ]; then
-                notes="$(gh release view "$tag" --repo "$repo" --json body --jq .body | grep -E '^\s*[-*] ' | head -n 40 || true)"
+                notes="$(gh release view "$tag" --repo "$repo" --json body --jq .body | grep -E '^\s*[-*] ' | sed -E "s/${brand}/[vendor]/Ig" | head -n 40 || true)"
                 report+=$'\n'"### $repo · new release \`$tag\`"$'\n'"$notes"$'\n'
               fi
               echo "$tag" > "$tagfile"

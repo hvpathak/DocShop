@@ -5,6 +5,7 @@ use std::cmp::Reverse;
 use std::io;
 use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use eframe::egui::{
     self, Align, Align2, Color32, KeyboardShortcut, Layout, Modifiers, RichText, vec2,
@@ -13,12 +14,14 @@ use harshpad_core::commands::{self, CATALOG, Command, Key, Menu, Shortcut, TabKi
 use harshpad_core::document::{Document, write_atomically};
 use harshpad_core::modes::{self, Mode};
 use harshpad_core::session::FindOptions;
-use harshpad_rich::{Align as TextAlign, Flag, ParaStyle, Rgb, RichDoc, RichFormat, markdown};
+use harshpad_rich::{Flag, RichDoc, RichFormat, markdown};
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 
+use crate::chrome;
 use crate::doc_tab::DocTab;
 use crate::fonts;
 use crate::recovery::{Recovery, Saved};
+use crate::ribbon::{self, Act};
 use crate::settings::Settings;
 use crate::text_tab::{Step, TextTab};
 
@@ -32,6 +35,42 @@ const ACCENT: Color32 = Color32::from_rgb(30, 110, 210);
 enum Content {
     Text(Box<TextTab>),
     Doc(Box<DocTab>),
+}
+
+/// A toggle switch, like the AutoSave switch of a word processor.
+fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
+    let size = vec2(32.0, 16.0);
+    let (rect, mut response) = ui.allocate_exact_size(size, egui::Sense::click());
+    if response.clicked() {
+        *on = !*on;
+        response.mark_changed();
+    }
+    let t = ui.ctx().animate_bool_responsive(response.id, *on);
+    let fill = if *on {
+        ACCENT
+    } else {
+        ui.visuals().widgets.inactive.bg_fill
+    };
+    let radius = rect.height() / 2.0;
+    ui.painter().rect(
+        rect,
+        radius,
+        fill,
+        egui::Stroke::new(
+            1.0_f32,
+            ui.visuals()
+                .widgets
+                .inactive
+                .fg_stroke
+                .color
+                .gamma_multiply(0.5),
+        ),
+        egui::StrokeKind::Inside,
+    );
+    let x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), t);
+    ui.painter()
+        .circle_filled(egui::pos2(x, rect.center().y), radius - 3.0, Color32::WHITE);
+    response
 }
 
 struct Tab {
@@ -105,6 +144,10 @@ struct FindBar {
 }
 
 enum Dialog {
+    WordCount {
+        rows: Vec<(&'static str, String)>,
+    },
+    Shortcuts,
     Palette {
         query: String,
         focus: bool,
@@ -141,6 +184,18 @@ pub struct StudioApp {
     window_title: String,
     recovery: Recovery,
     settings: Settings,
+    /// Which ribbon tab is showing (index into `ribbon::TABS`).
+    ribbon_tab: usize,
+    ribbon_collapsed: bool,
+    /// Open the new-tab choices on the next frame (Ctrl+T).
+    open_picker: bool,
+    tab_search: String,
+    command_search: String,
+    /// Recently closed tabs (title, content), newest last, for Ctrl+Shift+T.
+    closed: Vec<(String, Content)>,
+    /// Clipboard events for the editor, sent once it has focus.
+    pending_input: Vec<egui::Event>,
+    last_autosave: Instant,
 }
 
 impl StudioApp {
@@ -161,6 +216,14 @@ impl StudioApp {
             window_title: String::new(),
             recovery: Recovery::new(),
             settings: Settings::load(),
+            ribbon_tab: 1,
+            ribbon_collapsed: false,
+            open_picker: false,
+            tab_search: String::new(),
+            command_search: String::new(),
+            closed: Vec::new(),
+            pending_input: Vec::new(),
+            last_autosave: Instant::now(),
         };
         if !app.settings.mode.is_available() {
             app.settings.mode = Mode::Studio;
@@ -327,12 +390,51 @@ impl StudioApp {
             return;
         }
         if index < self.tabs.len() {
-            self.tabs.remove(index);
+            let tab = self.tabs.remove(index);
+            // Keep it for Ctrl+Shift+T (empty new tabs aren't worth reopening).
+            if !tab.is_pristine() {
+                self.closed.push((tab.title(), tab.content));
+                if self.closed.len() > 10 {
+                    self.closed.remove(0);
+                }
+            }
+            if index < self.active || self.active >= self.tabs.len() {
+                self.active = self.active.saturating_sub(1);
+            }
         }
         if self.tabs.is_empty() {
             self.new_tab(self.home_kind());
         }
         self.active = self.active.min(self.tabs.len() - 1);
+    }
+
+    fn reopen(&mut self, index: usize) {
+        if index >= self.closed.len() {
+            return;
+        }
+        let (_, content) = self.closed.remove(index);
+        let id = self.id();
+        self.tabs.push(Tab { id, content });
+        self.active = self.tabs.len() - 1;
+        self.enforce_mode();
+    }
+
+    /// Opens a new tab: in a single-app mode straight away, otherwise ask which kind.
+    fn new_tab_flow(&mut self) {
+        if self.settings.mode == Mode::Studio {
+            self.open_picker = true;
+        } else {
+            self.new_tab(self.home_kind());
+        }
+    }
+
+    fn move_tab(&mut self, from: usize, to: usize) {
+        if from >= self.tabs.len() || to >= self.tabs.len() {
+            return;
+        }
+        let tab = self.tabs.remove(from);
+        self.tabs.insert(to, tab);
+        self.active = to;
     }
 
     // ---- Commands ----------------------------------------------------------------------
@@ -355,6 +457,37 @@ impl StudioApp {
         }
         self.status = None;
         match command {
+            Command::NewTab => self.new_tab_flow(),
+            Command::ReopenClosedTab => match self.closed.len().checked_sub(1) {
+                Some(last) => self.reopen(last),
+                None => self.status = Some("No recently closed tabs".into()),
+            },
+            Command::Tab1
+            | Command::Tab2
+            | Command::Tab3
+            | Command::Tab4
+            | Command::Tab5
+            | Command::Tab6
+            | Command::Tab7
+            | Command::Tab8 => {
+                let n = [
+                    Command::Tab1,
+                    Command::Tab2,
+                    Command::Tab3,
+                    Command::Tab4,
+                    Command::Tab5,
+                    Command::Tab6,
+                    Command::Tab7,
+                    Command::Tab8,
+                ]
+                .iter()
+                .position(|c| *c == command)
+                .unwrap_or(0);
+                if n < self.tabs.len() {
+                    self.active = n;
+                }
+            }
+            Command::LastTab => self.active = self.tabs.len().saturating_sub(1),
             Command::NewText => self.new_tab(self.home_kind()),
             Command::NewDocument => self.new_tab(TabKind::Doc),
             Command::ModeStudio => self.request_mode(Mode::Studio),
@@ -784,7 +917,14 @@ impl StudioApp {
         // and editing keys for that box.
         let editing_elsewhere = ctx.wants_keyboard_input() && self.dialog.is_some()
             || ctx.memory(|m| m.focused()).is_some_and(|f| {
-                f == egui::Id::new("find-needle") || f == egui::Id::new("find-replacement")
+                [
+                    "find-needle",
+                    "find-replacement",
+                    "command-search",
+                    "tab-search",
+                ]
+                .iter()
+                .any(|name| f == egui::Id::new(name))
             });
         let mut bound: Vec<_> = CATALOG
             .iter()
@@ -823,146 +963,97 @@ impl StudioApp {
 
     // ---- Panels ---------------------------------------------------------------------------
 
-    fn menu_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
+    /// The classic menus, kept under ⋯ for people who prefer them.
+    fn classic_menus(&mut self, ui: &mut egui::Ui) -> Option<Command> {
         let kind = self.kind();
         let mut clicked = None;
-        egui::menu::bar(ui, |ui| {
-            for menu in Menu::ALL {
-                ui.menu_button(menu.label(), |ui| {
-                    for spec in commands::in_menu(menu).filter(|s| self.offered(s)) {
-                        if spec.separator_before {
-                            ui.separator();
-                        }
-                        let shortcut = spec.shortcut.map(Shortcut::label).unwrap_or_default();
-                        // In a single-app mode "New text file" is just "New".
-                        let label = if spec.command == Command::NewText
-                            && self.settings.mode != Mode::Studio
-                        {
+        for menu in Menu::ALL {
+            ui.menu_button(menu.label(), |ui| {
+                for spec in commands::in_menu(menu).filter(|s| self.offered(s)) {
+                    if spec.separator_before {
+                        ui.separator();
+                    }
+                    let shortcut = spec.shortcut.map(Shortcut::label).unwrap_or_default();
+                    // In a single-app mode "New text file" is just "New".
+                    let label =
+                        if spec.command == Command::NewText && self.settings.mode != Mode::Studio {
                             "New"
                         } else {
                             spec.label
                         };
-                        let mut button = egui::Button::new(label).shortcut_text(shortcut);
-                        if let Some(on) = self.checked(spec.command) {
-                            button = button.selected(on);
-                        }
-                        if ui.add_enabled(spec.works_in(kind), button).clicked() {
-                            clicked = Some(spec.command);
-                            ui.close_menu();
-                        }
+                    let mut button = egui::Button::new(label).shortcut_text(shortcut);
+                    if let Some(on) = self.checked(spec.command) {
+                        button = button.selected(on);
                     }
-                });
-            }
-        });
-        clicked
-    }
-
-    fn tab_strip(&mut self, ui: &mut egui::Ui) -> Option<Command> {
-        let mut clicked = None;
-        let mut close = None;
-        egui::ScrollArea::horizontal()
-            .id_salt("tabs")
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    for (i, tab) in self.tabs.iter().enumerate() {
-                        let icon = if tab.kind() == TabKind::Doc {
-                            "📝"
-                        } else {
-                            "📄"
-                        };
-                        let dirty = if tab.is_dirty() { " ●" } else { "" };
-                        let label = format!("{icon} {}{dirty}", tab.title());
-                        let response = ui.selectable_label(i == self.active, label).on_hover_text(
-                            tab.path().map_or_else(
-                                || "Not saved yet".to_owned(),
-                                |p| p.display().to_string(),
-                            ),
-                        );
-                        if response.clicked() {
-                            self.active = i;
-                        }
-                        if response.middle_clicked() {
-                            close = Some(i);
-                        }
-                        if ui
-                            .small_button("×")
-                            .on_hover_text("Close tab (Ctrl+W)")
-                            .clicked()
-                        {
-                            close = Some(i);
-                        }
-                        ui.add_space(6.0);
+                    if ui.add_enabled(spec.works_in(kind), button).clicked() {
+                        clicked = Some(spec.command);
+                        ui.close_menu();
                     }
-                    let mode = self.settings.mode;
-                    if mode == Mode::Studio {
-                        if ui
-                            .button("+ Text")
-                            .on_hover_text("New text file (Ctrl+N)")
-                            .clicked()
-                        {
-                            clicked = Some(Command::NewText);
-                        }
-                        if ui
-                            .button("+ Document")
-                            .on_hover_text("New document (Ctrl+Shift+N)")
-                            .clicked()
-                        {
-                            clicked = Some(Command::NewDocument);
-                        }
-                    } else if ui.button("+ New").on_hover_text("New (Ctrl+N)").clicked() {
-                        clicked = Some(Command::NewText);
-                    }
-                    ui.add_space(12.0);
-                    // The mode switch: all together, or one app at a time.
-                    let lock = if self.settings.locked() { " 🔒" } else { "" };
-                    ui.menu_button(format!("◧ {}{lock}", mode.short()), |ui| {
-                        for (m, c) in [
-                            (Mode::Studio, Command::ModeStudio),
-                            (Mode::Notepad, Command::ModeNotepad),
-                            (Mode::Writer, Command::ModeWriter),
-                            (Mode::Pdf, Command::ModePdf),
-                        ] {
-                            let label = if m.is_available() {
-                                m.label().to_owned()
-                            } else {
-                                format!("{} (coming soon)", m.label())
-                            };
-                            if ui
-                                .add_enabled(
-                                    m.is_available(),
-                                    egui::Button::new(label).selected(m == mode),
-                                )
-                                .clicked()
-                            {
-                                clicked = Some(c);
-                                ui.close_menu();
-                            }
-                        }
-                        ui.separator();
-                        let lock_label = if self.settings.locked() {
-                            "🔒 Remove parent lock…"
-                        } else {
-                            "🔓 Parent lock…"
-                        };
-                        if ui.button(lock_label).clicked() {
-                            clicked = Some(Command::ParentLock);
-                            ui.close_menu();
-                        }
-                    })
-                    .response
-                    .on_hover_text(
-                        "Use all apps together, or just one (e.g. Writer only for a child)",
-                    );
-                });
+                }
             });
-        if let Some(i) = close {
-            self.close_tab(i);
         }
         clicked
     }
 
-    /// The same layout for every kind: undo · find · zoom · kind-specific tools.
-    fn toolbar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
+    /// Browser-style tabs in the title bar.
+    fn tab_bar(&mut self, ui: &mut egui::Ui) {
+        let infos: Vec<chrome::TabInfo> = self
+            .tabs
+            .iter()
+            .map(|t| chrome::TabInfo {
+                title: t.title(),
+                icon: if t.kind() == TabKind::Doc {
+                    "📝"
+                } else {
+                    "📄"
+                },
+                dirty: t.is_dirty(),
+                tooltip: t.path().map_or_else(
+                    || format!("{} · not saved yet", t.title()),
+                    |p| p.display().to_string(),
+                ),
+            })
+            .collect();
+        let mode = self.settings.mode;
+        let offer = chrome::Offer {
+            ask: mode == Mode::Studio,
+            home: self.home_kind(),
+            text: mode.allows(TabKind::Text),
+            doc: mode.allows(TabKind::Doc),
+            pdf: matches!(mode, Mode::Studio | Mode::Pdf),
+        };
+        let closed: Vec<String> = self.closed.iter().map(|(t, _)| t.clone()).collect();
+        let open_picker = std::mem::take(&mut self.open_picker);
+        let events = chrome::title_bar(
+            ui,
+            &infos,
+            self.active,
+            &offer,
+            open_picker,
+            &mut self.tab_search,
+            &closed,
+        );
+        for event in events {
+            match event {
+                chrome::Event::Select(i) => {
+                    if i < self.tabs.len() {
+                        self.active = i;
+                    }
+                }
+                chrome::Event::Close(i) => self.close_tab(i),
+                chrome::Event::Move { from, to } => self.move_tab(from, to),
+                chrome::Event::New(kind) => self.new_tab(kind),
+                chrome::Event::Open => self.open_dialog(),
+                chrome::Event::PdfSoon => {
+                    self.status = Some("PDF tabs arrive in the next update".into());
+                }
+                chrome::Event::Reopen(i) => self.reopen(i),
+            }
+        }
+    }
+
+    /// AutoSave · Save · Undo · Redo · ⋯ menus | title | command search · mode.
+    fn quick_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
         let mut clicked = None;
         let tip = |c: Command| {
             commands::spec_of(c).map_or(String::new(), |s| match s.shortcut {
@@ -970,62 +1061,357 @@ impl StudioApp {
                 None => s.label.to_owned(),
             })
         };
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing.x = 4.0;
-            for (c, label) in [(Command::Undo, "↶"), (Command::Redo, "↷")] {
-                if ui.button(label).on_hover_text(tip(c)).clicked() {
+        let bar = ui.max_rect();
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            let mut on = self.settings.autosave;
+            if toggle_switch(ui, &mut on)
+                .on_hover_text("AutoSave: files that have a name save themselves every few seconds")
+                .changed()
+            {
+                self.settings.autosave = on;
+                self.settings.save();
+                self.status = Some(
+                    if on {
+                        "AutoSave on: files that have a name now save themselves"
+                    } else {
+                        "AutoSave off"
+                    }
+                    .into(),
+                );
+            }
+            ui.label(RichText::new("AutoSave").size(12.0));
+            ui.add_space(4.0);
+            for (c, icon) in [
+                (Command::Save, "💾"),
+                (Command::Undo, "↶"),
+                (Command::Redo, "↷"),
+            ] {
+                let button = egui::Button::new(RichText::new(icon).size(16.0)).frame(false);
+                if ui.add(button).on_hover_text(tip(c)).clicked() {
                     clicked = Some(c);
                 }
             }
-            ui.separator();
-            if ui
-                .button("🔍 Find")
-                .on_hover_text(tip(Command::Find))
-                .clicked()
-            {
-                clicked = Some(Command::Find);
-            }
-            ui.separator();
-            if ui
-                .button("−")
-                .on_hover_text(tip(Command::ZoomOut))
-                .clicked()
-            {
-                clicked = Some(Command::ZoomOut);
-            }
-            if ui
-                .button(format!("{:.0}%", self.zoom * 100.0))
-                .on_hover_text(tip(Command::ZoomReset))
-                .clicked()
-            {
-                clicked = Some(Command::ZoomReset);
-            }
-            if ui.button("+").on_hover_text(tip(Command::ZoomIn)).clicked() {
-                clicked = Some(Command::ZoomIn);
-            }
-            ui.separator();
-            let studio = self.settings.mode == Mode::Studio;
-            match self.tab_mut().map(|t| &mut t.content) {
-                Some(Content::Text(t)) => {
-                    if ui.selectable_label(t.word_wrap, "↩ Word wrap").clicked() {
-                        clicked = Some(Command::WordWrap);
+            ui.menu_button(RichText::new("⋯").size(16.0), |ui| {
+                if let Some(c) = self.classic_menus(ui) {
+                    clicked = Some(c);
+                }
+            })
+            .response
+            .on_hover_text("All menus");
+
+            // The document name and its state, centred like a title.
+            if let Some(tab) = self.tab() {
+                let state = if tab.is_dirty() {
+                    if self.settings.autosave && tab.path().is_some() {
+                        "Saving…"
+                    } else {
+                        "Edited"
                     }
-                    if studio
-                        && ui
-                            .button("📝 Open as document")
-                            .on_hover_text(
-                                "Markdown headings, lists and emphasis become formatting",
+                } else if tab.path().is_some() {
+                    "Saved"
+                } else {
+                    "Not saved yet"
+                };
+                ui.painter().text(
+                    bar.center(),
+                    Align2::CENTER_CENTER,
+                    format!("{} — {state}", tab.title()),
+                    egui::FontId::proportional(13.0),
+                    ui.visuals().text_color(),
+                );
+            }
+
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                // The mode switch: all together, or one app at a time.
+                let mode = self.settings.mode;
+                let lock = if self.settings.locked() { " 🔒" } else { "" };
+                ui.menu_button(format!("◧ {}{lock} ▾", mode.short()), |ui| {
+                    for (m, c) in [
+                        (Mode::Studio, Command::ModeStudio),
+                        (Mode::Notepad, Command::ModeNotepad),
+                        (Mode::Writer, Command::ModeWriter),
+                        (Mode::Pdf, Command::ModePdf),
+                    ] {
+                        let label = if m.is_available() {
+                            m.label().to_owned()
+                        } else {
+                            format!("{} (coming soon)", m.label())
+                        };
+                        if ui
+                            .add_enabled(
+                                m.is_available(),
+                                egui::Button::new(label).selected(m == mode),
                             )
                             .clicked()
-                    {
-                        clicked = Some(Command::ConvertToDocument);
+                        {
+                            clicked = Some(c);
+                            ui.close_menu();
+                        }
                     }
+                    ui.separator();
+                    let lock_label = if self.settings.locked() {
+                        "🔒 Remove parent lock…"
+                    } else {
+                        "🔓 Parent lock…"
+                    };
+                    if ui.button(lock_label).clicked() {
+                        clicked = Some(Command::ParentLock);
+                        ui.close_menu();
+                    }
+                })
+                .response
+                .on_hover_text("Use all apps together, or just one (e.g. Writer only for a child)");
+
+                // Search every command, like the search box of a word processor.
+                let search = ui.add(
+                    egui::TextEdit::singleline(&mut self.command_search)
+                        .id(egui::Id::new("command-search"))
+                        .hint_text("🔍  Search commands")
+                        .desired_width(240.0),
+                );
+                let popup = egui::Id::new("command-search-results");
+                if search.has_focus() && !self.command_search.is_empty() {
+                    ui.memory_mut(|m| m.open_popup(popup));
                 }
-                Some(Content::Doc(d)) => clicked = clicked.or(doc_tools(ui, d, &tip, studio)),
-                None => {}
-            }
+                let kind = self.kind();
+                let found: Vec<_> = commands::search(&self.command_search)
+                    .into_iter()
+                    .filter(|s| s.works_in(kind) && mode.allows_command(s))
+                    .take(12)
+                    .collect();
+                let mut picked = None;
+                if search.lost_focus()
+                    && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                    && let Some(first) = found.first()
+                {
+                    picked = Some(first.command);
+                }
+                egui::popup::popup_below_widget(
+                    ui,
+                    popup,
+                    &search,
+                    egui::PopupCloseBehavior::CloseOnClickOutside,
+                    |ui| {
+                        ui.set_min_width(300.0);
+                        if found.is_empty() {
+                            ui.weak("No matching commands");
+                        }
+                        for spec in &found {
+                            let key = spec.shortcut.map(Shortcut::label).unwrap_or_default();
+                            let button = egui::Button::new(spec.label)
+                                .shortcut_text(key)
+                                .min_size(vec2(300.0, 0.0));
+                            if ui.add(button).clicked() {
+                                picked = Some(spec.command);
+                            }
+                        }
+                    },
+                );
+                if let Some(c) = picked {
+                    clicked = Some(c);
+                    self.command_search.clear();
+                    ui.memory_mut(|m| m.close_popup());
+                }
+            });
         });
         clicked
+    }
+
+    /// File · Home · Insert · … with the active one underlined.
+    fn ribbon_tabs(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 16.0;
+            if !ribbon::shows(self.ribbon_tab, self.settings.mode) {
+                self.ribbon_tab = 1;
+            }
+            for (i, name) in ribbon::TABS.iter().enumerate() {
+                if !ribbon::shows(i, self.settings.mode) {
+                    continue;
+                }
+                let on = self.ribbon_tab == i && !self.ribbon_collapsed;
+                let text = RichText::new(*name).size(13.0);
+                let text = if on {
+                    text.color(ACCENT).strong()
+                } else {
+                    text
+                };
+                let response = ui.add(
+                    egui::Button::new(text)
+                        .frame(false)
+                        .min_size(vec2(0.0, 26.0)),
+                );
+                if on {
+                    let r = response.rect;
+                    ui.painter().line_segment(
+                        [
+                            egui::pos2(r.left() + 6.0, r.bottom()),
+                            egui::pos2(r.right() - 6.0, r.bottom()),
+                        ],
+                        egui::Stroke::new(2.5_f32, ACCENT),
+                    );
+                }
+                if response.double_clicked() {
+                    self.ribbon_collapsed = !self.ribbon_collapsed;
+                } else if response.clicked() {
+                    self.ribbon_tab = i;
+                    self.ribbon_collapsed = false;
+                }
+            }
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let arrow = if self.ribbon_collapsed { "⌄" } else { "⌃" };
+                if ui
+                    .add(egui::Button::new(arrow).frame(false))
+                    .on_hover_text("Show or hide the ribbon (double-click a tab)")
+                    .clicked()
+                {
+                    self.ribbon_collapsed = !self.ribbon_collapsed;
+                }
+                for (label, what) in [("↗ Share", "Sharing"), ("💬 Comments", "Comments")] {
+                    if ui
+                        .button(RichText::new(label).size(12.5))
+                        .on_hover_text(format!("{what} (coming soon)"))
+                        .clicked()
+                    {
+                        self.status = Some(format!("{what} is coming soon"));
+                    }
+                }
+            });
+        });
+    }
+
+    fn ribbon_body(&mut self, ui: &mut egui::Ui) -> Option<Act> {
+        let tab = self.ribbon_tab;
+        let mut state = ribbon::State {
+            mode: self.settings.mode,
+            ruler: self.settings.ruler,
+            status_bar: self.show_status_bar,
+            ..Default::default()
+        };
+        let doc = match self.tab_mut().map(|t| &mut t.content) {
+            Some(Content::Doc(d)) => {
+                state.doc = true;
+                state.flags = [
+                    Flag::Bold,
+                    Flag::Italic,
+                    Flag::Underline,
+                    Flag::Strike,
+                    Flag::Code,
+                ]
+                .map(|f| d.has(f));
+                state.para = d.paragraph();
+                state.read_only = d.read_only;
+                Some(&mut **d)
+            }
+            Some(Content::Text(t)) => {
+                state.word_wrap = t.word_wrap;
+                None
+            }
+            None => None,
+        };
+        ribbon::body(ui, tab, &state, doc)
+    }
+
+    fn run_act(&mut self, act: Act, ctx: &egui::Context) {
+        match act {
+            Act::Cmd(c) => self.dispatch(c, ctx),
+            Act::Soon(name) => self.status = Some(format!("{name} is coming soon")),
+            Act::Paste => match arboard::Clipboard::new().and_then(|mut c| c.get_text()) {
+                Ok(text) => self.send_to_editor(ctx, egui::Event::Paste(text)),
+                Err(_) => self.status = Some("The clipboard has no text".into()),
+            },
+            Act::Cut => self.send_to_editor(ctx, egui::Event::Cut),
+            Act::Copy => self.send_to_editor(ctx, egui::Event::Copy),
+            Act::SelectAll => match self.tab_mut().map(|t| &mut t.content) {
+                Some(Content::Text(t)) => t.select_all(ctx),
+                Some(Content::Doc(d)) => d.select_all(),
+                None => {}
+            },
+            Act::InsertText(text) => self.insert(ctx, &text),
+            Act::InsertDate => {
+                let now = chrono::Local::now().format("%d %B %Y, %H:%M").to_string();
+                self.insert(ctx, &now);
+            }
+            Act::HorizontalLine => self.insert(ctx, &format!("\n{}\n", "─".repeat(40))),
+            Act::WordCount => {
+                let rows = match self.tab().map(|t| &t.content) {
+                    Some(Content::Text(t)) => t.stats(),
+                    Some(Content::Doc(d)) => d.stats(),
+                    None => Vec::new(),
+                };
+                self.dialog = Some(Dialog::WordCount { rows });
+            }
+            Act::ToggleReadOnly => {
+                if let Some(d) = self.doc_tab() {
+                    d.read_only = !d.read_only;
+                    let on = d.read_only;
+                    self.status = Some(
+                        if on {
+                            "Editing restricted: you can read and copy, not change (Review → Restrict Editing to undo)"
+                        } else {
+                            "Editing allowed again"
+                        }
+                        .into(),
+                    );
+                }
+            }
+            Act::ToggleRuler => {
+                self.settings.ruler = !self.settings.ruler;
+                self.settings.save();
+            }
+            Act::Shortcuts => self.dialog = Some(Dialog::Shortcuts),
+        }
+    }
+
+    /// Clipboard buttons act like the keyboard: focus the editor, then send the event.
+    fn send_to_editor(&mut self, ctx: &egui::Context, event: egui::Event) {
+        if let Some(t) = self.tab() {
+            t.focus(ctx);
+        }
+        self.pending_input.push(event);
+        ctx.request_repaint();
+    }
+
+    fn insert(&mut self, ctx: &egui::Context, text: &str) {
+        match self.tab_mut().map(|t| &mut t.content) {
+            Some(Content::Text(t)) => t.insert_text(ctx, text),
+            Some(Content::Doc(d)) => {
+                if d.read_only {
+                    self.status =
+                        Some("This document is read-only (Review → Restrict Editing)".into());
+                } else {
+                    d.insert_text(text);
+                }
+            }
+            None => {}
+        }
+    }
+
+    /// Saves named, changed tabs every 20 seconds when AutoSave is on.
+    fn autosave(&mut self, ctx: &egui::Context) {
+        if !self.settings.autosave {
+            return;
+        }
+        ctx.request_repaint_after(Duration::from_secs(5));
+        if self.last_autosave.elapsed() < Duration::from_secs(20) {
+            return;
+        }
+        self.last_autosave = Instant::now();
+        for tab in &mut self.tabs {
+            if !tab.is_dirty() {
+                continue;
+            }
+            // Only files that already have a name and a format; never ask.
+            let _ = match &mut tab.content {
+                Content::Text(t) if t.path().is_some() => t.session.doc.save(),
+                Content::Doc(d) => match (d.path.clone(), d.format) {
+                    (Some(path), Some(format)) => write_doc(d, path, format),
+                    _ => continue,
+                },
+                Content::Text(_) => continue,
+            };
+        }
+        self.write_recovery();
     }
 
     fn find_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
@@ -1130,6 +1516,66 @@ impl StudioApp {
         let mut new_pin: Option<u64> = None;
         match self.dialog.as_mut() {
             None => return None,
+            Some(Dialog::WordCount { rows }) => {
+                egui::Window::new("Word Count")
+                    .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label(RichText::new("Statistics").strong());
+                        egui::Grid::new("word-count")
+                            .num_columns(2)
+                            .spacing([40.0, 6.0])
+                            .show(ui, |ui| {
+                                for (name, value) in rows.iter() {
+                                    ui.label(*name);
+                                    ui.label(RichText::new(value).strong());
+                                    ui.end_row();
+                                }
+                            });
+                        ui.add_space(6.0);
+                        if ui.button("Close").clicked()
+                            || ui.input(|i| {
+                                i.key_pressed(egui::Key::Escape) || i.key_pressed(egui::Key::Enter)
+                            })
+                        {
+                            close = true;
+                        }
+                    });
+            }
+            Some(Dialog::Shortcuts) => {
+                egui::Window::new("Keyboard shortcuts")
+                    .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        egui::ScrollArea::vertical()
+                            .max_height(440.0)
+                            .show(ui, |ui| {
+                                egui::Grid::new("shortcuts")
+                                    .num_columns(2)
+                                    .striped(true)
+                                    .spacing([40.0, 4.0])
+                                    .show(ui, |ui| {
+                                        for spec in
+                                            CATALOG.iter().filter(|s| mode.allows_command(s))
+                                        {
+                                            if let Some(key) = spec.shortcut {
+                                                ui.label(spec.label);
+                                                ui.label(RichText::new(key.label()).monospace());
+                                                ui.end_row();
+                                            }
+                                        }
+                                    });
+                            });
+                        ui.add_space(6.0);
+                        if ui.button("Close").clicked()
+                            || ui.input(|i| i.key_pressed(egui::Key::Escape))
+                        {
+                            close = true;
+                        }
+                    });
+            }
             Some(Dialog::Unlock {
                 then,
                 pin,
@@ -1337,138 +1783,6 @@ impl StudioApp {
     }
 }
 
-/// Document tools: paragraph style, character toggles, colours, alignment, lists, link.
-fn doc_tools(
-    ui: &mut egui::Ui,
-    d: &mut DocTab,
-    tip: &dyn Fn(Command) -> String,
-    studio: bool,
-) -> Option<Command> {
-    let mut clicked = None;
-    let para = d.paragraph();
-    let mut style = para.style;
-    egui::ComboBox::from_id_salt("para-style")
-        .width(120.0)
-        .selected_text(para.style.label())
-        .show_ui(ui, |ui| {
-            for s in ParaStyle::ALL {
-                ui.selectable_value(&mut style, s, s.label());
-            }
-        });
-    if style != para.style {
-        clicked = Some(match style {
-            ParaStyle::Normal => Command::StyleNormal,
-            ParaStyle::Title => Command::StyleTitle,
-            ParaStyle::Heading1 => Command::StyleHeading1,
-            ParaStyle::Heading2 => Command::StyleHeading2,
-            ParaStyle::Heading3 => Command::StyleHeading3,
-            ParaStyle::Quote => Command::StyleQuote,
-            ParaStyle::Code => Command::StyleCode,
-            ParaStyle::Bullet => Command::BulletList,
-            ParaStyle::Numbered => Command::NumberedList,
-        });
-    }
-    for (c, flag, text) in [
-        (Command::Bold, Flag::Bold, RichText::new("B").strong()),
-        (Command::Italic, Flag::Italic, RichText::new("I").italics()),
-        (
-            Command::Underline,
-            Flag::Underline,
-            RichText::new("U").underline(),
-        ),
-        (
-            Command::Strike,
-            Flag::Strike,
-            RichText::new("S").strikethrough(),
-        ),
-        (
-            Command::InlineCode,
-            Flag::Code,
-            RichText::new("</>").monospace(),
-        ),
-    ] {
-        if ui
-            .selectable_label(d.has(flag), text)
-            .on_hover_text(tip(c))
-            .clicked()
-        {
-            clicked = Some(c);
-        }
-    }
-    ui.separator();
-    let cs = d.char_style();
-    let mut color = cs.color.map_or([32, 32, 32], |c| [c.0, c.1, c.2]);
-    ui.label("A");
-    if egui::color_picker::color_edit_button_srgb(ui, &mut color)
-        .on_hover_text("Text colour")
-        .changed()
-    {
-        d.set_color(Some(Rgb(color[0], color[1], color[2])));
-    }
-    let mut mark = cs.highlight.map_or([255, 241, 118], |c| [c.0, c.1, c.2]);
-    ui.label("🖍");
-    if egui::color_picker::color_edit_button_srgb(ui, &mut mark)
-        .on_hover_text("Highlight colour")
-        .changed()
-    {
-        d.set_highlight(Some(Rgb(mark[0], mark[1], mark[2])));
-    }
-    if cs.highlight.is_some()
-        && ui
-            .small_button("✕")
-            .on_hover_text("Remove highlight")
-            .clicked()
-    {
-        d.set_highlight(None);
-    }
-    ui.separator();
-    for (c, a, label) in [
-        (Command::AlignLeft, TextAlign::Left, "⫷"),
-        (Command::AlignCenter, TextAlign::Center, "≡"),
-        (Command::AlignRight, TextAlign::Right, "⫸"),
-        (Command::AlignJustify, TextAlign::Justify, "☰"),
-    ] {
-        if ui
-            .selectable_label(para.align == a, label)
-            .on_hover_text(tip(c))
-            .clicked()
-        {
-            clicked = Some(c);
-        }
-    }
-    ui.separator();
-    if ui
-        .selectable_label(para.style == ParaStyle::Bullet, "• List")
-        .on_hover_text(tip(Command::BulletList))
-        .clicked()
-    {
-        clicked = Some(Command::BulletList);
-    }
-    if ui
-        .selectable_label(para.style == ParaStyle::Numbered, "1. List")
-        .on_hover_text(tip(Command::NumberedList))
-        .clicked()
-    {
-        clicked = Some(Command::NumberedList);
-    }
-    if ui
-        .button("🔗 Link")
-        .on_hover_text(tip(Command::InsertLink))
-        .clicked()
-    {
-        clicked = Some(Command::InsertLink);
-    }
-    if studio
-        && ui
-            .button("📄 Open as plain text")
-            .on_hover_text("Formatting is written as Markdown")
-            .clicked()
-    {
-        clicked = Some(Command::ConvertToText);
-    }
-    clicked
-}
-
 /// Turns a tab into another kind as a new, unsaved copy (no path, so nothing on disk
 /// is overwritten in another format). Text becomes plain paragraphs when `plain`,
 /// otherwise it is read as Markdown; documents become Markdown text.
@@ -1519,20 +1833,45 @@ impl eframe::App for StudioApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_close_request(ctx);
         self.handle_dropped_files(ctx);
+        if !self.pending_input.is_empty() {
+            let events = std::mem::take(&mut self.pending_input);
+            ctx.input_mut(|i| i.events.extend(events));
+        }
         self.handle_shortcuts(ctx);
         self.update_title(ctx);
         let copies = || self.dirty_copies();
         let tabs = copies();
         self.recovery.tick(|| tabs);
+        self.autosave(ctx);
+        chrome::resize_edges(ctx);
 
         let mut clicked = None;
-        egui::TopBottomPanel::top("menu").show(ctx, |ui| clicked = self.menu_bar(ui));
-        egui::TopBottomPanel::top("tabs").show(ctx, |ui| clicked = clicked.or(self.tab_strip(ui)));
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.add_space(2.0);
-            clicked = clicked.or(self.toolbar(ui));
-            ui.add_space(2.0);
-        });
+        let mut act = None;
+        egui::TopBottomPanel::top("titlebar")
+            .exact_height(chrome::BAR_H)
+            .frame(egui::Frame::NONE)
+            .show_separator_line(false)
+            .show(ctx, |ui| self.tab_bar(ui));
+        egui::TopBottomPanel::top("quickbar")
+            .show_separator_line(false)
+            .frame(
+                egui::Frame::side_top_panel(&ctx.style())
+                    .inner_margin(egui::Margin::symmetric(10, 5)),
+            )
+            .show(ctx, |ui| clicked = self.quick_bar(ui));
+        egui::TopBottomPanel::top("ribbon")
+            .frame(
+                egui::Frame::side_top_panel(&ctx.style())
+                    .inner_margin(egui::Margin::symmetric(8, 2)),
+            )
+            .show(ctx, |ui| {
+                self.ribbon_tabs(ui);
+                if !self.ribbon_collapsed {
+                    ui.add_space(4.0);
+                    act = self.ribbon_body(ui);
+                    ui.add_space(2.0);
+                }
+            });
         if self.find.open {
             egui::TopBottomPanel::top("find")
                 .show(ctx, |ui| clicked = clicked.or(self.find_bar(ui)));
@@ -1551,12 +1890,13 @@ impl eframe::App for StudioApp {
             ctx.style().visuals.extreme_bg_color
         };
         let zoom = self.zoom;
+        let ruler = self.settings.ruler;
         egui::CentralPanel::default()
             .frame(egui::Frame::central_panel(&ctx.style()).fill(backdrop))
             .show(ctx, |ui| {
                 match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
                     Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
-                    Some(Content::Doc(d)) => d.ui(ui, zoom),
+                    Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),
                     None => {}
                 }
             });
@@ -1566,6 +1906,10 @@ impl eframe::App for StudioApp {
         if let Some(command) = clicked {
             self.dispatch(command, ctx);
         }
+        if let Some(act) = act {
+            self.run_act(act, ctx);
+        }
+        chrome::border(ctx);
     }
 }
 
@@ -1602,6 +1946,7 @@ fn egui_keys(key: Key) -> &'static [egui::Key] {
         Key::P => &[E::P],
         Key::R => &[E::R],
         Key::S => &[E::S],
+        Key::T => &[E::T],
         Key::U => &[E::U],
         Key::W => &[E::W],
         Key::X => &[E::X],
@@ -1611,6 +1956,12 @@ fn egui_keys(key: Key) -> &'static [egui::Key] {
         Key::Num1 => &[E::Num1],
         Key::Num2 => &[E::Num2],
         Key::Num3 => &[E::Num3],
+        Key::Num4 => &[E::Num4],
+        Key::Num5 => &[E::Num5],
+        Key::Num6 => &[E::Num6],
+        Key::Num7 => &[E::Num7],
+        Key::Num8 => &[E::Num8],
+        Key::Num9 => &[E::Num9],
         Key::F3 => &[E::F3],
         // "=" is the unshifted "+" key on most layouts.
         Key::Plus => &[E::Plus, E::Equals],

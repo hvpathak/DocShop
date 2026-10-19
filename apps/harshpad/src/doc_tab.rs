@@ -51,6 +51,8 @@ pub struct DocTab {
     editor_id: egui::Id,
     /// Name shown until the tab is saved (e.g. "notes.txt (copy)").
     pub name_hint: Option<String>,
+    /// Restrict Editing: the text can be read and copied but not changed.
+    pub read_only: bool,
 }
 
 impl DocTab {
@@ -74,6 +76,7 @@ impl DocTab {
             pending: None,
             editor_id: egui::Id::new(("doc-editor", tab_id)),
             name_hint: None,
+            read_only: false,
         }
     }
 
@@ -413,9 +416,128 @@ impl DocTab {
         self.current_match = None;
     }
 
+    // ---- Ribbon actions ----------------------------------------------------------------
+
+    /// Types `text` at the cursor, replacing any selection.
+    pub fn insert_text(&mut self, text: &str) {
+        if self.read_only {
+            return;
+        }
+        let before = self.snapshot();
+        let start = self.sel.start.min(self.buffer.len());
+        let end = self.sel.end.clamp(start, self.buffer.len());
+        let mut new = self.buffer.clone();
+        if new.get(start..end).is_none() {
+            return;
+        }
+        new.replace_range(start..end, text);
+        let style = self.char_style();
+        self.doc.apply_edit(&new, Some(&style));
+        self.buffer = self.doc.text().to_owned();
+        self.record(before, EditKind::Other);
+        let at = start + text.len();
+        self.pending = Some(at..at);
+    }
+
+    pub fn select_all(&mut self) {
+        self.pending = Some(0..self.buffer.len());
+    }
+
+    /// Word Count window rows.
+    pub fn stats(&self) -> Vec<(&'static str, String)> {
+        let text = self.doc.text();
+        let words = self.doc.word_count();
+        let pages = words.div_ceil(450).max(1);
+        vec![
+            ("Pages (estimated)", pages.to_string()),
+            ("Words", words.to_string()),
+            (
+                "Characters (no spaces)",
+                text.chars()
+                    .filter(|c| !c.is_whitespace())
+                    .count()
+                    .to_string(),
+            ),
+            (
+                "Characters (with spaces)",
+                self.doc.char_count().to_string(),
+            ),
+            (
+                "Paragraphs",
+                self.doc
+                    .paragraphs()
+                    .filter(|(_, r)| !r.is_empty())
+                    .count()
+                    .to_string(),
+            ),
+        ]
+    }
+
     // ---- Drawing --------------------------------------------------------------------
 
-    pub fn ui(&mut self, ui: &mut egui::Ui, zoom: f32) {
+    /// A ruler in inches above the page, numbered from the left margin, with
+    /// markers at both margins.
+    fn ruler(ui: &mut egui::Ui, page_w: f32, margin: f32, zoom: f32) {
+        let (rect, _) =
+            ui.allocate_exact_size(vec2(ui.available_width(), 22.0), egui::Sense::hover());
+        let painter = ui.painter_at(rect);
+        let page_left = rect.center().x - page_w / 2.0 - 5.0;
+        let inch = 96.0 * zoom;
+        let strip = egui::Rect::from_min_max(
+            pos2(page_left, rect.top() + 3.0),
+            pos2(page_left + page_w, rect.bottom() - 3.0),
+        );
+        painter.rect_filled(strip, 2.0, Color32::from_gray(205));
+        let writing = egui::Rect::from_min_max(
+            pos2(page_left + margin, strip.top()),
+            pos2(page_left + page_w - margin, strip.bottom()),
+        );
+        painter.rect_filled(writing, 0.0, Color32::from_gray(250));
+        let ink = Color32::from_gray(90);
+        let zero = page_left + margin;
+        let first = -((margin / (inch / 8.0)).floor() as i32);
+        let last = ((page_w - margin) / (inch / 8.0)).ceil() as i32;
+        for k in first..=last {
+            let x = zero + k as f32 * inch / 8.0;
+            if x < strip.left() || x > strip.right() {
+                continue;
+            }
+            let mid = strip.center().y;
+            if k % 8 == 0 && k != 0 {
+                painter.text(
+                    pos2(x, mid),
+                    Align2::CENTER_CENTER,
+                    (k / 8).abs().to_string(),
+                    FontId::proportional(10.0),
+                    ink,
+                );
+            } else if k % 4 == 0 {
+                painter.line_segment(
+                    [pos2(x, mid - 3.0), pos2(x, mid + 3.0)],
+                    Stroke::new(1.0_f32, ink),
+                );
+            } else if k % 8 != 0 {
+                painter.line_segment(
+                    [pos2(x, mid - 1.0), pos2(x, mid + 1.0)],
+                    Stroke::new(1.0_f32, ink.gamma_multiply(0.7)),
+                );
+            }
+        }
+        for x in [writing.left(), writing.right()] {
+            let tri = vec![
+                pos2(x - 5.0, strip.bottom()),
+                pos2(x + 5.0, strip.bottom()),
+                pos2(x, strip.bottom() - 6.0),
+            ];
+            painter.add(egui::Shape::convex_polygon(
+                tri,
+                Color32::from_gray(120),
+                Stroke::NONE,
+            ));
+        }
+    }
+
+    pub fn ui(&mut self, ui: &mut egui::Ui, zoom: f32, show_ruler: bool) {
         let ctx = ui.ctx().clone();
         if let Some(r) = self.pending.take() {
             let start = text_pos::char_index(&self.buffer, r.start);
@@ -434,6 +556,9 @@ impl DocTab {
         let margin = (MARGIN * zoom).min(page_w * 0.12);
         let inner_w = page_w - 2.0 * margin;
         let inner_h = PAGE_H * zoom - 2.0 * margin;
+        if show_ruler {
+            Self::ruler(ui, page_w, margin, zoom);
+        }
 
         let mut changed = false;
         let mut cursor: Option<(usize, usize)> = None;
@@ -441,8 +566,10 @@ impl DocTab {
             doc,
             buffer,
             editor_id,
+            read_only,
             ..
         } = self;
+        let read_only = *read_only;
         let doc_ref: &RichDoc = doc;
         egui::ScrollArea::vertical()
             .id_salt(*editor_id)
@@ -469,7 +596,15 @@ impl DocTab {
                                 let job = layout_job(doc_ref, text, wrap, zoom, ui);
                                 ui.fonts(|f| f.layout_job(job))
                             };
-                            let output = egui::TextEdit::multiline(buffer)
+                            // Restrict Editing: an immutable text still lets you select and copy.
+                            let mut locked: &str;
+                            let text: &mut dyn egui::TextBuffer = if read_only {
+                                locked = buffer.as_str();
+                                &mut locked
+                            } else {
+                                buffer
+                            };
+                            let output = egui::TextEdit::multiline(text)
                                 .id(*editor_id)
                                 .frame(false)
                                 .lock_focus(true)

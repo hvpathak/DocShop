@@ -28,10 +28,30 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/studio.png" alt="HarshPad Studio: a document tab on a white page with a blue heading, bold, italic, strikethrough, a link, underline, inline code, bulleted and numbered lists, a quote and a code block; the toolbar shows the paragraph style, B I U S buttons, colours, alignment and lists; the status bar reads Para 1, Col 1, 80 words, 100%, Markdown" width="100%">
+  <img src="docs/images/studio.png" alt="HarshPad Studio: browser-style tabs in the title bar, a quick-access row with AutoSave, Save, Undo and Redo, the document name and 'Saved', a command search box and the Studio mode switch; below it a ribbon with File, Home, Insert, Draw, Design, Layout, References, Mailings, Review, View and Help, the Home tab showing Clipboard, Font, Paragraph, Styles and Editing groups; a ruler; and a white page with the heading 'Quarterly plan', bold and italic text, a bulleted list and a quote" width="100%">
 </p>
 
 ---
+
+## Tabs like your browser, a ribbon like your word processor
+
+<p align="center">
+  <img src="docs/images/new-tab.png" alt="Clicking + next to the tabs opens a menu titled 'Open a new tab as…' with four cards: Text file (plain text, like a notepad, Ctrl+N), Document (formatted writing, .docx and Markdown, Ctrl+Shift+N), PDF (coming soon) and Open a file… (Ctrl+O)" width="100%">
+</p>
+
+- **Tabs live in the title bar.** Drag to reorder, middle-click or <kbd>Ctrl+W</kbd> to close, <kbd>Ctrl+Tab</kbd>
+  to cycle, <kbd>Ctrl+1</kbd>…<kbd>Ctrl+8</kbd> to jump, <kbd>Ctrl+9</kbd> for the last tab. A dot marks unsaved work. Titles fade
+  instead of being cut off, and tab widths hold still while you close tabs, so the next × is right under your pointer.
+- **+ asks what you want:** a text file, a document, or a PDF (<kbd>Ctrl+T</kbd>). In a single-app mode it just opens one.
+- **⌄ menu:** new tab as…, search your open tabs, and recently closed tabs. <kbd>Ctrl+Shift+T</kbd> brings the last one back,
+  unsaved text included.
+- **The ribbon:** File · Home · Insert · Draw · Design · Layout · References · Mailings · Review · View · Help, with
+  big and small buttons in named groups. Double-click a tab to fold the ribbon away.
+  Working today: clipboard, fonts and styles gallery, paragraph and alignment, find and replace, links, date and time,
+  symbols, horizontal line, Word Count, Restrict Editing (read-only), ruler, status bar, zoom, modes, parent lock,
+  keyboard shortcuts. Buttons for features still being built are shown greyed out and say **coming soon**.
+- **Quick-access row:** an **AutoSave** switch (named files save themselves every 20 seconds), Save, Undo, Redo, the
+  classic menus under **⋯**, the document name with *Saved* / *Edited*, and a **command search** box.
 
 ## One app, four modes
 
@@ -43,10 +63,10 @@
 | **PDF only** | Coming in the next release |
 
 <p align="center">
-  <img src="docs/images/writer-mode.png" alt="Writer-only mode: just a New button, the Writer mode switch and the writing tools; a plain text file opened as a document copy named kid-notes.txt (copy)" width="100%">
+  <img src="docs/images/writer-mode.png" alt="Writer-only mode: the mode switch reads Writer, + opens a new document straight away, and the ribbon shows the writing tools above a formatted page" width="100%">
 </p>
 
-Switch from the **◧** button next to the tabs (or *View → Mode*). A **parent lock** keeps the app in one
+Switch from the **◧** button at the top right (or *View → Mode* in the ribbon). A **parent lock** keeps the app in one
 mode behind a 4–8 digit PIN, so a child can use the Writer without wandering into anything else.
 Files of another kind open as a new copy in the current mode, so nothing on disk is ever overwritten
 in a different format.
@@ -69,7 +89,7 @@ Shortcuts you already know: <kbd>Ctrl+B/I/U</kbd>, <kbd>Ctrl+L/E/R/J</kbd> to al
 ## The Notepad
 
 <p align="center">
-  <img src="docs/images/notepad.png" alt="A plain-text tab with Word wrap and Open as document buttons; the status bar reads Ln 1, Col 1, 72 words, 100%, UTF-8, Windows (CRLF)" width="100%">
+  <img src="docs/images/notepad.png" alt="Notepad-only mode: a plain-text shopping list; the ribbon keeps only File, Home, Insert, Review, View and Help, and Home shows just Clipboard, Word Wrap, Date and Time, and Find, Replace, Select All; the status bar reads Ln 1, Col 1, 19 words, 100%, UTF-8, Windows (CRLF)" width="100%">
 </p>
 
 Everything the classic notepad does, with guarantees it never had:
@@ -82,8 +102,9 @@ Everything the classic notepad does, with guarantees it never had:
 
 ## One rhythm across every tab
 
-The same layout everywhere: **undo · find · zoom · tools for this tab**, and the same status bar
-(position · words · zoom · format). Every action lives in one command catalog, so the same key does the
+The same layout everywhere: **tabs · quick-access row · ribbon**, and the same status bar
+(position · words · zoom · format). Each mode shows only the ribbon tabs it uses: Notepad mode keeps
+File, Home, Insert, Review, View and Help. Every action lives in one command catalog, so the same key does the
 same thing in every tab and no key means two things. <kbd>Ctrl+Shift+P</kbd> opens the command palette.
 
 ## Fast, measured
@@ -135,7 +156,7 @@ Rust 1.88+. On Linux, install GTK 3 and xkbcommon headers first
 ```text
 crates/core     commands (one catalog for every tab kind), modes, plain-text documents, find, undo
 crates/rich     rich documents: styled-text model, .docx (from the public ECMA-376 standard), Markdown, .hpdoc
-apps/harshpad   the desktop app: tabs, the shared toolbar and status bar, Notepad and Writer views
+apps/harshpad   the desktop app: browser-style tabs, the ribbon, Notepad and Writer views
 apps/harshpad-cli  the same engines from the command line
 ```
 

@@ -3,13 +3,33 @@
 use harshpad_core::modes::Mode;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
     pub mode: Mode,
     /// Hash of the parent-lock PIN; `None` when the mode isn't locked.
     #[serde(default)]
     pub pin: Option<u64>,
+    /// Save files that already have a name automatically, every few seconds.
+    #[serde(default)]
+    pub autosave: bool,
+    #[serde(default = "yes")]
+    pub ruler: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            mode: Mode::default(),
+            pin: None,
+            autosave: false,
+            ruler: true,
+        }
+    }
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl Settings {
