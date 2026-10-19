@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <img src="https://github.com/hvpathak/HarshPad/releases/download/v0.3.0/studio.png" alt="HarshPad Studio: a document tab on a white page with a blue heading, bold, italic, strikethrough, a link, underline, inline code, bulleted and numbered lists, a quote and a code block; the toolbar shows the paragraph style, B I U S buttons, colours, alignment and lists; the status bar reads Para 1, Col 1, 80 words, 100%, Markdown" width="100%">
+  <img src="docs/images/studio.png" alt="HarshPad Studio: a document tab on a white page with a blue heading, bold, italic, strikethrough, a link, underline, inline code, bulleted and numbered lists, a quote and a code block; the toolbar shows the paragraph style, B I U S buttons, colours, alignment and lists; the status bar reads Para 1, Col 1, 80 words, 100%, Markdown" width="100%">
 </p>
 
 ---
@@ -41,6 +41,10 @@
 | **Notepad only** | The fast, distraction-free plain-text editor, nothing else |
 | **Writer only** | Just the document writer: perfect for students and kids |
 | **PDF only** | Coming in the next release |
+
+<p align="center">
+  <img src="docs/images/writer-mode.png" alt="Writer-only mode: just a New button, the Writer mode switch and the writing tools; a plain text file opened as a document copy named kid-notes.txt (copy)" width="100%">
+</p>
 
 Switch from the **◧** button next to the tabs (or *View → Mode*). A **parent lock** keeps the app in one
 mode behind a 4–8 digit PIN, so a child can use the Writer without wandering into anything else.
@@ -63,6 +67,10 @@ Shortcuts you already know: <kbd>Ctrl+B/I/U</kbd>, <kbd>Ctrl+L/E/R/J</kbd> to al
 <kbd>Ctrl+Space</kbd> clear formatting.
 
 ## The Notepad
+
+<p align="center">
+  <img src="docs/images/notepad.png" alt="A plain-text tab with Word wrap and Open as document buttons; the status bar reads Ln 1, Col 1, 72 words, 100%, UTF-8, Windows (CRLF)" width="100%">
+</p>
 
 Everything the classic notepad does, with guarantees it never had:
 
