@@ -112,6 +112,10 @@ jobs:
             <key>CFBundleVersion</key><string>$version</string>
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>NSHighResolutionCapable</key><true/>
+            <key>CFBundleDocumentTypes</key><array>
+              <dict><key>CFBundleTypeName</key><string>Document</string><key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Alternate</string><key>CFBundleTypeExtensions</key><array><string>docx</string><string>docm</string><string>dotx</string><string>doc</string><string>rtf</string><string>odt</string><string>md</string><string>html</string></array></dict>
+              <dict><key>CFBundleTypeName</key><string>Plain text</string><key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Alternate</string><key>CFBundleTypeExtensions</key><array><string>txt</string><string>log</string><string>csv</string><string>json</string><string>ini</string><string>xml</string></array></dict>
+            </array>
           </dict>
           </plist>
           EOF

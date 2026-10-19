@@ -26,6 +26,7 @@ craft-print = { git = "https://github.com/storytold/craft-libs", rev = "d27646a5
 
 # The WordCraft host services (wordcraft_host), with the same platform crates WordCraft's app uses.
 [target.'cfg(target_os = "macos")'.dependencies]
+fmv-macos-events = "=0.1.0"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }

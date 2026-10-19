@@ -244,6 +244,9 @@ pub struct StudioApp {
     last_autosave: Instant,
     /// For Writer tabs, which need it to set up their dialogs and theme.
     ctx: egui::Context,
+    /// Files Finder asks us to open (macOS).
+    #[cfg(target_os = "macos")]
+    finder: Option<fmv_macos_events::Inbox>,
 }
 
 impl StudioApp {
@@ -273,6 +276,8 @@ impl StudioApp {
             pending_input: Vec::new(),
             last_autosave: Instant::now(),
             ctx: cc.egui_ctx.clone(),
+            #[cfg(target_os = "macos")]
+            finder: None,
         };
         if !app.settings.mode.is_available() {
             app.settings.mode = Mode::Studio;
@@ -302,6 +307,12 @@ impl StudioApp {
             });
         }
         app
+    }
+
+    /// Receives Finder's open-document events (macOS).
+    #[cfg(target_os = "macos")]
+    pub fn connect_finder(&mut self, inbox: fmv_macos_events::Inbox) {
+        self.finder = Some(inbox);
     }
 
     // ---- Modes -------------------------------------------------------------------------
@@ -2239,6 +2250,16 @@ impl eframe::App for StudioApp {
         let ctx = &ctx_owned;
         self.handle_close_request(ctx);
         self.handle_dropped_files(ctx);
+        #[cfg(target_os = "macos")]
+        if let Some(inbox) = &self.finder {
+            let (files, quit) = crate::wordcraft_host::apple_events::drain(inbox);
+            for f in files {
+                self.open_path(&f);
+            }
+            if quit {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+        }
         if !self.pending_input.is_empty() {
             let events = std::mem::take(&mut self.pending_input);
             ctx.input_mut(|i| i.events.extend(events));

@@ -4,6 +4,8 @@
 //! modules come from WordCraft's own desktop app (github.com/storytold/wordcraft, MIT OR Apache-2.0; see licenses/wordcraft).
 
 pub mod animations;
+#[cfg(target_os = "macos")]
+pub mod apple_events;
 pub mod clipboard;
 pub mod file_dialogs;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]

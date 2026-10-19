@@ -58,9 +58,21 @@ fn main() -> eframe::Result {
     );
     // Fonts added in the Writer, before any Writer tab lays out text.
     wordcraft_host::prefs::load_user_fonts();
+    // Finder's open-document events, registered before the event loop so the one that
+    // launched the app is caught too (macOS).
+    #[cfg(target_os = "macos")]
+    let finder = wordcraft_host::apple_events::AppleEvents::install();
+    #[cfg(target_os = "macos")]
+    let finder = &finder;
     eframe::run_native(
         app::APP_NAME,
         options,
-        Box::new(move |cc| Ok(Box::new(app::StudioApp::new(cc, initial_file)))),
+        Box::new(move |cc| {
+            #[allow(unused_mut)]
+            let mut app = app::StudioApp::new(cc, initial_file);
+            #[cfg(target_os = "macos")]
+            app.connect_finder(finder.connect(&cc.egui_ctx));
+            Ok(Box::new(app))
+        }),
     )
 }
