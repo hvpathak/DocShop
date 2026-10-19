@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 harshpad-core.workspace = true
+harshpad-layout = { workspace = true }
 harshpad-rich.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

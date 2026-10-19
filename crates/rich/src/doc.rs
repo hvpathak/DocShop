@@ -245,9 +245,11 @@ impl RichDoc {
             } else {
                 para_k.style
             };
+            // Enter carries the paragraph's formatting on, but not a page break.
             let new_para = Paragraph {
                 style,
-                align: para_k.align,
+                page_break_before: false,
+                ..para_k
             };
             let at = (k + 1).min(self.paras.len());
             for _ in 0..added {
@@ -482,6 +484,24 @@ impl RichDoc {
                 p.align = align;
             }
         }
+    }
+
+    /// Changes every paragraph the range touches (indents, spacing, line spacing…).
+    pub fn update_paras(&mut self, range: Range<usize>, f: impl Fn(&mut Paragraph)) {
+        for i in self.para_indices(range) {
+            if let Some(p) = self.paras.get_mut(i) {
+                f(p);
+            }
+        }
+    }
+
+    /// Moves the left indent by `step` twips (never below zero), like the
+    /// Increase/Decrease Indent buttons.
+    pub fn shift_indent(&mut self, range: Range<usize>, step: i32) {
+        self.update_paras(range, |p| {
+            let base = p.effective_left();
+            p.indent_left = (base + step).max(0);
+        });
     }
 
     /// Removes character formatting from a range (keeps links).

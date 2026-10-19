@@ -18,7 +18,7 @@ and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the dist
 | Chapter | Score | |
 |---|---|---|
 | 1 · Notepad | **95%** | `███████████████████░` |
-| 2 · Writer | **17%** | `███░░░░░░░░░░░░░░░░░` |
+| 2 · Writer | **18%** | `████░░░░░░░░░░░░░░░░` |
 | 3 · PDF | **0%** (next) | `░░░░░░░░░░░░░░░░░░░░` |
 
 ## Chapter 1 · Notepad
@@ -35,11 +35,11 @@ and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the dist
 | Area | Weight | Score | Have | Missing |
 |---|---|---|---|---|
 | Typing, selection, clipboard, undo, find/replace | 12 | 55% | Typing with style carry-over, undo, clipboard, find/replace keeping formatting | Paste special, advanced find, column select, clipboard pane |
-| Character and paragraph formatting | 11 | 35% | Bold, italic, underline, strike, code, size, colour, highlight, alignment, clear | Font family, spacing, indents, borders, Font/Paragraph dialogs |
+| Character and paragraph formatting | 11 | 35% | Bold, italic, underline, strike, code, size, colour, highlight, alignment, clear; the model, layout and .docx already carry fonts, super/subscript, caps, letter spacing, indents, spacing and line spacing | Ribbon controls and Font/Paragraph dialogs for those, borders, shading |
 | Styles and themes | 8 | 20% | Styles gallery (Normal, Title, Heading 1–3, Quote, Code) | Custom styles, style pane, style sets, themes |
 | Lists | 6 | 35% | Bullets, numbering, Enter continues, empty item ends, Markdown shortcuts | Multilevel lists, restart, list styles |
 | Tables | 6 | 0% | | Insert, merge/split, styles, sort, formulas |
-| Page layout and sections | 7 | 5% | A4 page with margins, ruler | Margins, size, orientation, columns, breaks, sections |
+| Page layout and sections | 7 | 15% | Own layout engine: real pages, one-inch margins, page breaks, keep-with-next, keep lines together, ruler | Margins/size/orientation UI, columns, section breaks |
 | Headers, footers, page numbers, fields | 5 | 0% | | All |
 | Footnotes and endnotes | 3 | 0% | | All |
 | References (contents, citations, captions, index) | 5 | 0% | | All |
@@ -49,12 +49,12 @@ and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the dist
 | Pictures, shapes, text boxes | 4 | 0% | | All |
 | Equations | 1 | 0% | | All |
 | Charts, diagrams, drawing | 4 | 0% | | All |
-| View (modes, zoom, panes) | 3 | 20% | Zoom, ruler, status bar, print layout | Read mode, web layout, navigation pane, outline |
+| View (modes, zoom, panes) | 3 | 25% | Zoom, ruler, status bar, print layout with every page | Read mode, web layout, navigation pane, outline |
 | Backstage, files, options | 3 | 30% | New/open/save, .docx/.md/.hpdoc, AutoSave, recovery | Print, export PDF, more formats (ODT, RTF), options |
 | Right-to-left scripts | 1 | 0% | | All |
 | East Asian typography | 1 | 0% | | All |
 | Accessibility | 1 | 10% | Keyboard shortcuts for every command | Screen-reader text, checker, alt text |
-| **Writer total** | **100** | **17%** | | |
+| **Writer total** | **100** | **18%** | | |
 
 ## Chapter 3 · PDF
 

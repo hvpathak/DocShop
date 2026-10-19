@@ -11,7 +11,10 @@ pub mod style;
 
 pub use doc::{DocBuilder, EditOutcome, Flag, RichDoc, Run};
 pub use error::{Error, Result};
-pub use style::{Align, CharStyle, ParaStyle, Paragraph, Rgb};
+pub use style::{
+    Align, Baseline, CharStyle, FONT_FAMILIES, FONT_SIZES, LineSpacing, ParaStyle, Paragraph, Rgb,
+    TWIPS_PER_POINT,
+};
 
 /// Rich file formats HarshPad reads and writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

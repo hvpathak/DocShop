@@ -5,6 +5,7 @@ mod app;
 mod chrome;
 mod doc_tab;
 mod fonts;
+mod page;
 mod recovery;
 mod ribbon;
 mod settings;

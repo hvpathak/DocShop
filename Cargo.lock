@@ -1445,6 +1445,7 @@ dependencies = [
  "chrono",
  "eframe",
  "harshpad-core",
+ "harshpad-layout",
  "harshpad-rich",
  "rfd",
  "serde",
@@ -1465,6 +1466,13 @@ name = "harshpad-core"
 version = "0.5.0"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "harshpad-layout"
+version = "0.5.0"
+dependencies = [
+ "harshpad-rich",
 ]
 
 [[package]]

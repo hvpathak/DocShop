@@ -13,7 +13,7 @@ use quick_xml::reader::Reader;
 
 use crate::doc::{DocBuilder, RichDoc};
 use crate::error::{Error, Result, damaged};
-use crate::style::{Align, CharStyle, ParaStyle, Paragraph, Rgb};
+use crate::style::{Align, Baseline, CharStyle, LineSpacing, ParaStyle, Paragraph, Rgb};
 
 /// Largest single part of a .docx we will decompress.
 const MAX_PART: u64 = 64 * 1024 * 1024;
@@ -165,7 +165,7 @@ fn named_highlight(name: &str) -> Option<Rgb> {
 struct ParaState {
     style_id: Option<String>,
     num_id: Option<usize>,
-    align: Align,
+    props: Paragraph,
     pieces: Vec<(String, CharStyle)>,
 }
 
@@ -218,7 +218,7 @@ fn parse_document(
                     }
                     b"jc" if in_ppr => {
                         if let Some(p) = para.as_mut() {
-                            p.align = match attr(e, b"val").as_deref() {
+                            p.props.align = match attr(e, b"val").as_deref() {
                                 Some("center") => Align::Center,
                                 Some("right" | "end") => Align::Right,
                                 Some("both" | "distribute") => Align::Justify,
@@ -226,12 +226,77 @@ fn parse_document(
                             };
                         }
                     }
+                    b"ind" if in_ppr && !in_rpr => {
+                        if let Some(p) = para.as_mut() {
+                            let num = |names: &[&[u8]]| {
+                                names
+                                    .iter()
+                                    .find_map(|n| attr(e, n))
+                                    .and_then(|v| v.parse::<i32>().ok())
+                            };
+                            p.props.indent_left = num(&[b"left", b"start"]).unwrap_or(0);
+                            p.props.indent_right = num(&[b"right", b"end"]).unwrap_or(0);
+                            p.props.first_line = match (num(&[b"firstLine"]), num(&[b"hanging"])) {
+                                (_, Some(h)) => -h,
+                                (Some(f), None) => f,
+                                (None, None) => 0,
+                            };
+                        }
+                    }
+                    b"spacing" if in_ppr && !in_rpr => {
+                        if let Some(p) = para.as_mut() {
+                            let num = |n: &[u8]| attr(e, n).and_then(|v| v.parse::<u32>().ok());
+                            if let Some(v) = num(b"before") {
+                                p.props.space_before = Some(v);
+                            }
+                            if let Some(v) = num(b"after") {
+                                p.props.space_after = Some(v);
+                            }
+                            if let Some(line) = num(b"line") {
+                                p.props.line_spacing = match attr(e, b"lineRule").as_deref() {
+                                    Some("exact") => LineSpacing::Exactly(line),
+                                    Some("atLeast") => LineSpacing::AtLeast(line),
+                                    // "auto": 240 is single spacing.
+                                    _ => LineSpacing::Multiple(
+                                        u16::try_from(line * 100 / 240)
+                                            .unwrap_or(100)
+                                            .clamp(50, 500),
+                                    ),
+                                };
+                            }
+                        }
+                    }
+                    b"pageBreakBefore" | b"keepNext" | b"keepLines" if in_ppr && !in_rpr => {
+                        if let Some(p) = para.as_mut() {
+                            let value = on(e);
+                            match e.local_name().as_ref() {
+                                b"pageBreakBefore" => p.props.page_break_before = value,
+                                b"keepNext" => p.props.keep_with_next = value,
+                                _ => p.props.keep_lines_together = value,
+                            }
+                        }
+                    }
                     // Run properties (skip the paragraph-mark properties inside pPr).
                     name if in_rpr && !in_ppr => match name {
                         b"b" => run.bold = on(e),
                         b"i" => run.italic = on(e),
                         b"u" => run.underline = on(e),
-                        b"strike" | b"dstrike" => run.strike = on(e),
+                        b"strike" => run.strike = on(e),
+                        b"dstrike" => run.double_strike = on(e),
+                        b"caps" => run.all_caps = on(e),
+                        b"smallCaps" => run.small_caps = on(e),
+                        b"vertAlign" => {
+                            run.baseline = match attr(e, b"val").as_deref() {
+                                Some("superscript") => Baseline::Super,
+                                Some("subscript") => Baseline::Sub,
+                                _ => Baseline::Normal,
+                            }
+                        }
+                        b"spacing" => {
+                            run.spacing = attr(e, b"val")
+                                .and_then(|v| v.parse::<i32>().ok())
+                                .map_or(0, |v| v.clamp(-2000, 2000) as i16);
+                        }
                         b"sz" => {
                             run.size = attr(e, b"val")
                                 .and_then(|v| v.parse::<u32>().ok())
@@ -247,10 +312,15 @@ fn parse_document(
                             }
                         }
                         b"rFonts" => {
-                            let font = attr(e, b"ascii").unwrap_or_default().to_ascii_lowercase();
+                            let name = attr(e, b"ascii").or_else(|| attr(e, b"hAnsi"));
+                            let font = name.clone().unwrap_or_default().to_ascii_lowercase();
                             run.code = ["consolas", "courier", "mono", "menlo"]
                                 .iter()
                                 .any(|m| font.contains(m));
+                            // Inline code keeps its own look; other fonts are kept by name.
+                            if !run.code {
+                                run.font = name.filter(|n| !n.is_empty());
+                            }
                         }
                         _ => {}
                     },
@@ -286,13 +356,7 @@ fn parse_document(
                                 ParaStyle::Numbered
                             };
                         }
-                        b.paragraph(
-                            Paragraph {
-                                style,
-                                align: p.align,
-                            },
-                            &p.pieces,
-                        );
+                        b.paragraph(Paragraph { style, ..p.props }, &p.pieces);
                     }
                 }
                 b"pPr" => in_ppr = false,
@@ -332,6 +396,15 @@ pub fn write(doc: &RichDoc) -> Result<Vec<u8>> {
         if let Some(id) = style_id {
             body.push_str(&format!(r#"<w:pStyle w:val="{id}"/>"#));
         }
+        for (on, tag) in [
+            (para.keep_with_next, "<w:keepNext/>"),
+            (para.keep_lines_together, "<w:keepLines/>"),
+            (para.page_break_before, "<w:pageBreakBefore/>"),
+        ] {
+            if on {
+                body.push_str(tag);
+            }
+        }
         match para.style {
             ParaStyle::Bullet => {
                 body.push_str(r#"<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>"#)
@@ -341,6 +414,8 @@ pub fn write(doc: &RichDoc) -> Result<Vec<u8>> {
             }
             _ => {}
         }
+        body.push_str(&spacing_xml(&para));
+        body.push_str(&indent_xml(&para));
         let jc = match para.align {
             Align::Left => None,
             Align::Center => Some("center"),
@@ -404,10 +479,63 @@ pub fn write(doc: &RichDoc) -> Result<Vec<u8>> {
     Ok(zip.finish().map_err(damaged)?.into_inner())
 }
 
+fn spacing_xml(p: &Paragraph) -> String {
+    let mut attrs = String::new();
+    if let Some(v) = p.space_before {
+        attrs.push_str(&format!(r#" w:before="{v}""#));
+    }
+    if let Some(v) = p.space_after {
+        attrs.push_str(&format!(r#" w:after="{v}""#));
+    }
+    match p.line_spacing {
+        LineSpacing::Multiple(100) => {}
+        LineSpacing::Multiple(pct) => {
+            attrs.push_str(&format!(
+                r#" w:line="{}" w:lineRule="auto""#,
+                u32::from(pct) * 240 / 100
+            ));
+        }
+        LineSpacing::AtLeast(t) => {
+            attrs.push_str(&format!(r#" w:line="{t}" w:lineRule="atLeast""#))
+        }
+        LineSpacing::Exactly(t) => attrs.push_str(&format!(r#" w:line="{t}" w:lineRule="exact""#)),
+    }
+    if attrs.is_empty() {
+        String::new()
+    } else {
+        format!("<w:spacing{attrs}/>")
+    }
+}
+
+fn indent_xml(p: &Paragraph) -> String {
+    let mut attrs = String::new();
+    if p.indent_left != 0 {
+        attrs.push_str(&format!(r#" w:left="{}""#, p.indent_left));
+    }
+    if p.indent_right != 0 {
+        attrs.push_str(&format!(r#" w:right="{}""#, p.indent_right));
+    }
+    if p.first_line > 0 {
+        attrs.push_str(&format!(r#" w:firstLine="{}""#, p.first_line));
+    } else if p.first_line < 0 {
+        attrs.push_str(&format!(r#" w:hanging="{}""#, -p.first_line));
+    }
+    if attrs.is_empty() {
+        String::new()
+    } else {
+        format!("<w:ind{attrs}/>")
+    }
+}
+
 fn run_xml(text: &str, s: &CharStyle) -> String {
     let mut props = String::new();
     if s.code {
         props.push_str(r#"<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas"/>"#);
+    } else if let Some(font) = &s.font {
+        let f = escape(font);
+        props.push_str(&format!(
+            r#"<w:rFonts w:ascii="{f}" w:hAnsi="{f}" w:cs="{f}"/>"#
+        ));
     }
     if s.bold {
         props.push_str("<w:b/>");
@@ -415,11 +543,23 @@ fn run_xml(text: &str, s: &CharStyle) -> String {
     if s.italic {
         props.push_str("<w:i/>");
     }
+    if s.all_caps {
+        props.push_str("<w:caps/>");
+    }
+    if s.small_caps {
+        props.push_str("<w:smallCaps/>");
+    }
     if s.strike {
         props.push_str("<w:strike/>");
     }
+    if s.double_strike {
+        props.push_str("<w:dstrike/>");
+    }
     if let Some(c) = s.color {
         props.push_str(&format!(r#"<w:color w:val="{}"/>"#, c.to_hex()));
+    }
+    if s.spacing != 0 {
+        props.push_str(&format!(r#"<w:spacing w:val="{}"/>"#, s.spacing));
     }
     if let Some(size) = s.size {
         props.push_str(&format!(
@@ -435,6 +575,11 @@ fn run_xml(text: &str, s: &CharStyle) -> String {
             r#"<w:shd w:val="clear" w:color="auto" w:fill="{}"/>"#,
             h.to_hex()
         ));
+    }
+    match s.baseline {
+        Baseline::Super => props.push_str(r#"<w:vertAlign w:val="superscript"/>"#),
+        Baseline::Sub => props.push_str(r#"<w:vertAlign w:val="subscript"/>"#),
+        Baseline::Normal => {}
     }
     let mut out = String::from("<w:r>");
     if !props.is_empty() {
@@ -476,8 +621,8 @@ mod tests {
         );
         b.paragraph(
             Paragraph {
-                style: ParaStyle::Normal,
                 align: Align::Center,
+                ..Paragraph::new(ParaStyle::Normal)
             },
             &[
                 ("Plain, ".into(), CharStyle::default()),
@@ -585,5 +730,54 @@ mod tests {
         let xml = br#"<w:document xmlns:w="w"><w:body><w:p><w:r><w:t>keep</w:t></w:r><w:del><w:r><w:delText>gone</w:delText><w:t>gone</w:t></w:r></w:del></w:p></w:body></w:document>"#;
         let doc = parse_document(xml, &HashMap::new(), &HashMap::new()).unwrap();
         assert_eq!(doc.text(), "keep");
+    }
+
+    #[test]
+    fn paragraph_and_character_details_round_trip() {
+        let para = Paragraph {
+            indent_left: 720,
+            indent_right: 360,
+            first_line: -360,
+            space_before: Some(240),
+            space_after: Some(0),
+            line_spacing: LineSpacing::Multiple(150),
+            page_break_before: true,
+            keep_with_next: true,
+            keep_lines_together: true,
+            ..Paragraph::new(ParaStyle::Normal)
+        };
+        let fancy = CharStyle {
+            font: Some("Georgia".into()),
+            baseline: Baseline::Super,
+            all_caps: true,
+            small_caps: true,
+            double_strike: true,
+            spacing: 40,
+            ..CharStyle::default()
+        };
+        let exact = Paragraph {
+            line_spacing: LineSpacing::Exactly(360),
+            align: Align::Justify,
+            ..Paragraph::default()
+        };
+        let mut b = DocBuilder::new();
+        b.paragraph(
+            para,
+            &[
+                ("E = mc".into(), CharStyle::default()),
+                ("2".into(), fancy.clone()),
+            ],
+        );
+        b.paragraph(exact, &[("Second".into(), CharStyle::default())]);
+        let doc = b.finish();
+        for back in [
+            read(&write(&doc).unwrap()).unwrap(),
+            RichDoc::from_json(&doc.to_json().unwrap()).unwrap(),
+        ] {
+            assert_eq!(back.paras().first(), Some(&para));
+            assert_eq!(back.paras().get(1), Some(&exact));
+            // style_at reads the character before a position, like a caret.
+            assert_eq!(back.style_at(back.text().find('2').unwrap() + 1), fancy);
+        }
     }
 }
