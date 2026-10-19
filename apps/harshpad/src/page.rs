@@ -59,7 +59,7 @@ impl Metrics for AppMetrics<'_> {
             return *w;
         }
         let id = font_id(face, size);
-        let w = self.ctx.fonts(|f| f.glyph_width(&id, ch)) / PX_PER_PT;
+        let w = self.ctx.fonts_mut(|f| f.glyph_width(&id, ch)) / PX_PER_PT;
         self.widths.borrow_mut().insert(key, w);
         w
     }
@@ -72,7 +72,7 @@ impl Metrics for AppMetrics<'_> {
         let id = font_id(face, size);
         let galley = self
             .ctx
-            .fonts(|f| f.layout_no_wrap("Hg".to_owned(), id.clone(), Color32::BLACK));
+            .fonts_mut(|f| f.layout_no_wrap("Hg".to_owned(), id.clone(), Color32::BLACK));
         let (ascent, height) = galley
             .rows
             .first()
@@ -334,7 +334,7 @@ fn draw_text(ui: &egui::Ui, text: &str, look: &Look, baseline: Pos2, scale: f32,
         italics: look.face.italic,
         ..Default::default()
     };
-    let galley = ui.fonts(|f| f.layout_job(LayoutJob::single_section(text.to_owned(), format)));
+    let galley = ui.fonts_mut(|f| f.layout_job(LayoutJob::single_section(text.to_owned(), format)));
     let ascent = galley
         .rows
         .first()

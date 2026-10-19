@@ -13,7 +13,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 eframe.workspace = true
 rfd.workspace = true
-arboard = { version = "3", default-features = false }
+arboard = { version = "3.6", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies]

@@ -230,15 +230,15 @@ impl TextTab {
     pub fn ui(&mut self, ui: &mut egui::Ui, font_size: f32) {
         let font_id = egui::FontId::monospace(font_size);
         let word_wrap = self.word_wrap;
-        let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
+        let mut layouter = |ui: &egui::Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
             let width = if word_wrap { wrap_width } else { f32::INFINITY };
             let job = egui::text::LayoutJob::simple(
-                text.to_owned(),
+                text.as_str().to_owned(),
                 font_id.clone(),
                 ui.visuals().text_color(),
                 width,
             );
-            ui.fonts(|f| f.layout_job(job))
+            ui.fonts_mut(|f| f.layout_job(job))
         };
         // Measure before entering the scroll area, whose inner width can be unbounded.
         let visible = ui.available_size();
@@ -253,7 +253,7 @@ impl TextTab {
             .show(ui, |ui| {
                 let output = egui::TextEdit::multiline(&mut self.session.doc.text)
                     .id(self.editor_id)
-                    .frame(false)
+                    .frame(egui::Frame::NONE)
                     .lock_focus(true)
                     .desired_width(visible.x)
                     .min_size(visible)
@@ -264,7 +264,7 @@ impl TextTab {
                     self.session.text_edited();
                 }
                 if let Some(range) = output.cursor_range {
-                    let caret = range.primary.ccursor.index;
+                    let caret = range.primary.index.0;
                     if caret != self.caret {
                         if !output.response.changed() {
                             self.undo.break_group();

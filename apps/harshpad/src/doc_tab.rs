@@ -589,8 +589,7 @@ impl DocTab {
                     self.preedit.clear();
                     self.type_text(&t);
                 }
-                Event::Ime(ImeEvent::Preedit(t)) => self.preedit = t,
-                Event::Ime(ImeEvent::Disabled) => self.preedit.clear(),
+                Event::Ime(ImeEvent::Preedit { text: t, .. }) => self.preedit = t,
                 Event::Copy => {
                     if !self.sel.is_empty() {
                         ctx.copy_text(self.selected_text());
@@ -817,6 +816,8 @@ impl DocTab {
                             o.ime = Some(egui::output::IMEOutput {
                                 rect,
                                 cursor_rect: r,
+                                purpose: Default::default(),
+                                should_interrupt_composition: false,
                             });
                         });
                     }

@@ -1015,7 +1015,8 @@ impl StudioApp {
             i.raw
                 .dropped_files
                 .iter()
-                .filter_map(|f| f.path.clone())
+                .map(|f| f.path().to_path_buf())
+                .filter(|p| !p.as_os_str().is_empty())
                 .collect()
         });
         for path in dropped {
@@ -1027,7 +1028,7 @@ impl StudioApp {
         let kind = self.kind();
         // Typing in the find box, palette or link dialog keeps undo, formatting
         // and editing keys for that box.
-        let editing_elsewhere = ctx.wants_keyboard_input() && self.dialog.is_some()
+        let editing_elsewhere = ctx.egui_wants_keyboard_input() && self.dialog.is_some()
             || ctx.memory(|m| m.focused()).is_some_and(|f| {
                 [
                     "find-needle",
@@ -1098,7 +1099,7 @@ impl StudioApp {
                     }
                     if ui.add_enabled(spec.works_in(kind), button).clicked() {
                         clicked = Some(spec.command);
-                        ui.close_menu();
+                        ui.close();
                     }
                 }
             });
@@ -1284,11 +1285,11 @@ impl StudioApp {
                                 .clicked()
                         {
                             clicked = Some(Command::UnlockNextChapter);
-                            ui.close_menu();
+                            ui.close();
                         }
                         if ui.button("🚪 Leave the growing path…").clicked() {
                             clicked = Some(Command::LeavePath);
-                            ui.close_menu();
+                            ui.close();
                         }
                         return;
                     }
@@ -1311,7 +1312,7 @@ impl StudioApp {
                             .clicked()
                         {
                             clicked = Some(c);
-                            ui.close_menu();
+                            ui.close();
                         }
                     }
                     ui.separator();
@@ -1322,7 +1323,7 @@ impl StudioApp {
                     };
                     if ui.button(lock_label).clicked() {
                         clicked = Some(Command::ParentLock);
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui
                         .button("📖 Start the growing path…")
@@ -1330,7 +1331,7 @@ impl StudioApp {
                         .clicked()
                     {
                         clicked = Some(Command::StartPath);
-                        ui.close_menu();
+                        ui.close();
                     }
                 })
                 .response
@@ -1345,7 +1346,7 @@ impl StudioApp {
                 );
                 let popup = egui::Id::new("command-search-results");
                 if search.has_focus() && !self.command_search.is_empty() {
-                    ui.memory_mut(|m| m.open_popup(popup));
+                    egui::Popup::open_id(ui.ctx(), popup);
                 }
                 let kind = self.kind();
                 let found: Vec<_> = commands::search(&self.command_search)
@@ -1360,12 +1361,11 @@ impl StudioApp {
                 {
                     picked = Some(first.command);
                 }
-                egui::popup::popup_below_widget(
-                    ui,
-                    popup,
-                    &search,
-                    egui::PopupCloseBehavior::CloseOnClickOutside,
-                    |ui| {
+                egui::Popup::from_response(&search)
+                    .id(popup)
+                    .open_memory(None)
+                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                    .show(|ui| {
                         ui.set_min_width(300.0);
                         if found.is_empty() {
                             ui.weak("No matching commands");
@@ -1379,12 +1379,11 @@ impl StudioApp {
                                 picked = Some(spec.command);
                             }
                         }
-                    },
-                );
+                    });
                 if let Some(c) = picked {
                     clicked = Some(c);
                     self.command_search.clear();
-                    ui.memory_mut(|m| m.close_popup());
+                    egui::Popup::close_all(ui.ctx());
                 }
             });
         });
@@ -2186,7 +2185,9 @@ fn read_limited(path: &Path) -> io::Result<Vec<u8>> {
 }
 
 impl eframe::App for StudioApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx_owned = ui.ctx().clone();
+        let ctx = &ctx_owned;
         self.handle_close_request(ctx);
         self.handle_dropped_files(ctx);
         if !self.pending_input.is_empty() {
@@ -2203,24 +2204,24 @@ impl eframe::App for StudioApp {
 
         let mut clicked = None;
         let mut act = None;
-        egui::TopBottomPanel::top("titlebar")
-            .exact_height(chrome::BAR_H)
+        egui::Panel::top("titlebar")
+            .exact_size(chrome::BAR_H)
             .frame(egui::Frame::NONE)
             .show_separator_line(false)
-            .show(ctx, |ui| self.tab_bar(ui));
-        egui::TopBottomPanel::top("quickbar")
+            .show(ui, |ui| self.tab_bar(ui));
+        egui::Panel::top("quickbar")
             .show_separator_line(false)
             .frame(
-                egui::Frame::side_top_panel(&ctx.style())
+                egui::Frame::side_top_panel(&ctx.global_style())
                     .inner_margin(egui::Margin::symmetric(10, 5)),
             )
-            .show(ctx, |ui| clicked = self.quick_bar(ui));
-        egui::TopBottomPanel::top("ribbon")
+            .show(ui, |ui| clicked = self.quick_bar(ui));
+        egui::Panel::top("ribbon")
             .frame(
-                egui::Frame::side_top_panel(&ctx.style())
+                egui::Frame::side_top_panel(&ctx.global_style())
                     .inner_margin(egui::Margin::symmetric(8, 2)),
             )
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 self.ribbon_tabs(ui);
                 if !self.ribbon_collapsed {
                     ui.add_space(4.0);
@@ -2229,27 +2230,27 @@ impl eframe::App for StudioApp {
                 }
             });
         if self.find.open {
-            egui::TopBottomPanel::top("find")
-                .show(ctx, |ui| clicked = clicked.or(self.find_bar(ui)));
+            egui::Panel::top("find")
+                .show(ui, |ui| clicked = clicked.or(self.find_bar(ui)));
         }
         if self.show_status_bar {
-            egui::TopBottomPanel::bottom("status").show(ctx, |ui| self.status_bar(ui));
+            egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui));
         }
         let kind = self.kind();
         let backdrop = if kind == TabKind::Doc {
-            if ctx.style().visuals.dark_mode {
+            if ctx.global_style().visuals.dark_mode {
                 Color32::from_gray(48)
             } else {
                 Color32::from_gray(222)
             }
         } else {
-            ctx.style().visuals.extreme_bg_color
+            ctx.global_style().visuals.extreme_bg_color
         };
         let zoom = self.zoom;
         let ruler = self.settings.ruler;
         egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(&ctx.style()).fill(backdrop))
-            .show(ctx, |ui| {
+            .frame(egui::Frame::central_panel(&ctx.global_style()).fill(backdrop))
+            .show(ui, |ui| {
                 match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
                     Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
                     Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),

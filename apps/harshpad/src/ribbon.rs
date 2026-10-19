@@ -243,7 +243,7 @@ pub fn body(ui: &mut egui::Ui, tab: usize, s: &State, doc: Option<&mut DocTab>) 
                                             .clicked()
                                         {
                                             set(Act::InsertText(c.to_string()));
-                                            ui.close_menu();
+                                            ui.close();
                                         }
                                     }
                                 });

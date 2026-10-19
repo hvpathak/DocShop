@@ -121,7 +121,7 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
         );
         if response.on_hover_cursor(CursorIcon::PointingHand).clicked() {
             events.push(event);
-            ui.memory_mut(|m| m.close_popup());
+            egui::Popup::close_all(ui.ctx());
         }
     };
     if offer.text {
@@ -401,24 +401,22 @@ pub fn title_bar(
     if plus_response.clicked() && !offer.ask {
         events.push(Event::New(offer.home));
     } else if plus_response.clicked() {
-        ctx.memory_mut(|m| m.toggle_popup(picker));
+        egui::Popup::toggle_id(&ctx, picker);
     }
     if open_picker && offer.ask {
-        ctx.memory_mut(|m| m.open_popup(picker));
+        egui::Popup::open_id(&ctx, picker);
     }
-    egui::popup::popup_below_widget(
-        ui,
-        picker,
-        &plus_response,
-        PopupCloseBehavior::CloseOnClickOutside,
-        |ui| {
+    egui::Popup::from_response(&plus_response)
+        .id(picker)
+        .open_memory(None)
+        .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+        .show(|ui| {
             ui.set_min_width(340.0);
             ui.add_space(4.0);
             ui.label(RichText::new("Open a new tab as…").strong());
             ui.add_space(4.0);
             new_tab_choices(ui, offer, &mut events);
-        },
-    );
+        });
 
     // ---- ⌄ menu before the window controls -----------------------------------------
     let menu = Rect::from_center_size(
@@ -440,14 +438,13 @@ pub fn title_bar(
     painter.line_segment([pos2(c.x, c.y + 2.5), pos2(c.x + 5.0, c.y - 2.5)], chevron);
     let menu_id = Id::new("tab-menu");
     if menu_response.clicked() {
-        ctx.memory_mut(|m| m.toggle_popup(menu_id));
+        egui::Popup::toggle_id(&ctx, menu_id);
     }
-    egui::popup::popup_below_widget(
-        ui,
-        menu_id,
-        &menu_response,
-        PopupCloseBehavior::CloseOnClickOutside,
-        |ui| {
+    egui::Popup::from_response(&menu_response)
+        .id(menu_id)
+        .open_memory(None)
+        .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+        .show(|ui| {
             ui.set_min_width(340.0);
             ui.add_space(4.0);
             ui.label(RichText::new("Open a new tab as…").strong());
@@ -485,7 +482,7 @@ pub fn title_bar(
                             .clicked()
                         {
                             events.push(Event::Select(i));
-                            ui.memory_mut(|m| m.close_popup());
+                            egui::Popup::close_all(ui.ctx());
                         }
                     }
                 });
@@ -505,12 +502,11 @@ pub fn title_bar(
                         .clicked()
                     {
                         events.push(Event::Reopen(i));
-                        ui.memory_mut(|m| m.close_popup());
+                        egui::Popup::close_all(ui.ctx());
                     }
                 }
             }
-        },
-    );
+        });
 
     // ---- Drag area and window controls -------------------------------------------------
     let drag = Rect::from_min_max(
@@ -623,7 +619,7 @@ pub fn resize_edges(ctx: &egui::Context) {
     if macos() || ctx.input(|i| i.viewport().maximized.unwrap_or(false)) {
         return;
     }
-    let screen = ctx.screen_rect();
+    let screen = ctx.content_rect();
     let Some(p) = ctx.input(|i| i.pointer.hover_pos()) else {
         return;
     };
@@ -662,13 +658,13 @@ pub fn border(ctx: &egui::Context) {
         egui::Order::Foreground,
         Id::new("window-border"),
     ));
-    let colour = if ctx.style().visuals.dark_mode {
+    let colour = if ctx.global_style().visuals.dark_mode {
         Color32::from_gray(70)
     } else {
         Color32::from_gray(150)
     };
     painter.rect_stroke(
-        ctx.screen_rect().shrink(0.5),
+        ctx.content_rect().shrink(0.5),
         0.0,
         Stroke::new(1.0_f32, colour),
         egui::StrokeKind::Inside,
