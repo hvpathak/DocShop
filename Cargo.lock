@@ -1408,7 +1408,7 @@ dependencies = [
 
 [[package]]
 name = "harshpad"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "eframe",
  "harshpad-core",
@@ -1418,14 +1418,14 @@ dependencies = [
 
 [[package]]
 name = "harshpad-cli"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "harshpad-core",
 ]
 
 [[package]]
 name = "harshpad-core"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "hashbrown"

@@ -1,77 +1,123 @@
 <p align="center">
-  <img src="assets/icon-256.png" alt="HarshPad icon: a blue spiral notepad with the letters HP" width="128">
+  <img src="assets/icon-256.png" alt="HarshPad icon: a blue spiral notepad with the letters HP" width="132">
 </p>
 
 <h1 align="center">HarshPad</h1>
 
 <p align="center">
-  <b>Notepad, rebuilt from scratch in pure Rust.</b><br>
-  One 4.4 MB <code>.exe</code>. No installer. No account. No telemetry. No crashes by design.
+  <b>The notepad you already know, rebuilt from scratch in Rust.</b><br>
+  Opens in ~30 ms. One small app. No installer, no account, no telemetry, no crashes by design.<br>
+  Windows, macOS and Linux.
 </p>
 
 <p align="center">
+  <a href="https://github.com/hvpathak/HarshPad/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/hvpathak/HarshPad/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
-  <img alt="Windows 10 / 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-2f7bf5?style=flat-square&logo=windows">
-  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
+  <img alt="Windows · macOS · Linux" src="https://img.shields.io/badge/Windows%20·%20macOS%20·%20Linux-native-2f7bf5?style=flat-square">
   <img alt="unsafe: forbidden" src="https://img.shields.io/badge/unsafe-forbidden-success?style=flat-square">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
 </p>
 
 <p align="center">
-  <a href="https://github.com/hvpathak/HarshPad/releases/latest"><b>⬇ Download HarshPad.exe</b></a>
+  <a href="#download"><b>⬇ Download</b></a> ·
+  <a href="#why-harshpad">✨ Why</a> ·
+  <a href="#fast-measured">⚡ Speed</a> ·
+  <a href="#the-cli">🤖 CLI</a> ·
+  <a href="#coming-next-harshpad-studio">🚀 Next</a>
 </p>
 
 <p align="center">
-  <img src="https://github.com/hvpathak/HarshPad/releases/download/v0.1.1/screenshot.png" alt="HarshPad with its blue notepad icon in the title bar, showing a welcome file, with the File, Edit, Format, View and Help menus and a status bar reading Ln 1, Col 1, 100%, Windows (CRLF), UTF-8" width="100%">
+  <img src="https://github.com/hvpathak/HarshPad/releases/download/v0.1.1/screenshot.png" alt="HarshPad with its blue notepad icon in the title bar, showing a welcome file, the File, Edit, Format, View and Help menus, and a status bar reading Ln 1, Col 1, 100%, Windows (CRLF), UTF-8" width="100%">
 </p>
 
 ---
 
 ## Why HarshPad?
 
-Notepad is the one app everyone opens every day. HarshPad keeps everything your
-hands already know and adds the guarantees a text editor should have had all along.
+The notepad is the one app everyone opens every day. HarshPad keeps everything your hands already know,
+and adds the guarantees a text editor should always have had.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>⚡ Instant</h3>
+      The window is up in about <b>30 ms</b> (warm start). Big files open without freezing: the editor refuses
+      anything over 64 MB politely instead of locking up.
+    </td>
+    <td width="50%" valign="top">
+      <h3>🛡️ Never loses your text</h3>
+      Saves are <b>atomic</b>: HarshPad writes a temporary file and swaps it in, so a full disk or a power cut
+      can't leave you with half a file. Closing with unsaved changes always asks first.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <h3>🦀 No crashes by design</h3>
+      <code>unwrap</code>, <code>panic!</code>, raw indexing and <code>unsafe</code> are banned by the compiler in all
+      app code. Every damaged file or odd input becomes a message you can act on.
+    </td>
+    <td valign="top">
+      <h3>🔤 Encodings done right</h3>
+      UTF-8, UTF-8 with BOM, UTF-16 LE and BE. CRLF and LF line endings are detected and written back
+      <b>byte for byte</b>.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <h3>⌨️ Zero learning curve</h3>
+      The menus and shortcuts you know: <kbd>Ctrl+N/O/S</kbd>, <kbd>Ctrl+Shift+S</kbd>, <kbd>Ctrl+F</kbd>,
+      <kbd>F3</kbd> / <kbd>Shift+F3</kbd>, <kbd>Ctrl+H</kbd>, <kbd>Ctrl++/−/0</kbd>, Word Wrap, Status Bar.
+    </td>
+    <td valign="top">
+      <h3>🔒 Private</h3>
+      No network code at all. Nothing is sent anywhere, ever. Your fonts come from your own computer.
+    </td>
+  </tr>
+</table>
+
+## Fast, measured
+
+Measured on a mid-range laptop (i5-13450HX), release build:
 
 | | |
 |---|---|
-| ⚡ **Instant** | The window is up in **~30 ms** (warm start, measured on a mid-range laptop). |
-| 📦 **One file** | A single 4.4 MB `.exe` that only uses DLLs Windows already ships. Copy it to a USB stick and go. |
-| 🛡️ **Never loses your text** | Saves are atomic: HarshPad writes a temp file and swaps it in, so a full disk or a power cut can't leave you with half a file. Closing with unsaved changes always asks first. |
-| 🦀 **No crashes by design** | `unwrap`, `expect`, `panic!`, raw indexing and `unsafe` are **banned by the compiler** in all app code (they're allowed in tests only). Every error becomes a message you can act on. |
-| 🔤 **Encodings done right** | UTF-8, UTF-8 with BOM, UTF-16 LE and UTF-16 BE. Windows (CRLF) and Unix (LF) line endings are detected and written back **byte-for-byte**. |
-| ⌨️ **Zero learning curve** | Same menus and shortcuts as Notepad: Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+F, F3, Shift+F3, Ctrl+H, Ctrl+Plus/Minus/0. |
-| 🤖 **Scriptable** | `harshpad-cli` runs the same engine headlessly. It replaced **200,000 matches in a 10.7 MB file in 149 ms**. |
-| 🔒 **Private** | No network code at all. Nothing is sent anywhere, ever. |
+| Window open (warm start) | **~30 ms** |
+| App size | **4.6 MB**, a single file |
+| CLI: 200,000 replacements in a 10.7 MB file | **149 ms** |
 
 ## Download
 
-1. Grab **`HarshPad.exe`** from the [latest release](https://github.com/hvpathak/HarshPad/releases/latest).
-2. Double-click it. That's the whole install.
+| Platform | Download | Notes |
+|---|---|---|
+| **Windows** 10 / 11 (x64) | [HarshPad-windows-x64.exe](https://github.com/hvpathak/HarshPad/releases/latest/download/HarshPad-windows-x64.exe) | One file, double-click. If SmartScreen warns, choose **More info → Run anyway**. |
+| **macOS** 11+ (Apple Silicon **and** Intel) | [HarshPad-macos-universal.zip](https://github.com/hvpathak/HarshPad/releases/latest/download/HarshPad-macos-universal.zip) | Unzip, drag to Applications. First launch: right-click → **Open**. |
+| **Linux** x64 | [HarshPad-linux-x64.tar.gz](https://github.com/hvpathak/HarshPad/releases/latest/download/HarshPad-linux-x64.tar.gz) | Unpack and run `./harshpad`. Needs GTK 3 (on most desktops already). |
 
-Open a file directly: `HarshPad.exe notes.txt` (a missing file starts empty and saves to that name, just like Notepad).
-You can also drag a file onto the window.
+Command-line tool: [Windows](https://github.com/hvpathak/HarshPad/releases/latest/download/harshpad-cli-windows-x64.exe) ·
+[macOS](https://github.com/hvpathak/HarshPad/releases/latest/download/harshpad-cli-macos-universal.zip) · Linux (inside the tarball).
 
-> Windows may show a SmartScreen warning because the `.exe` isn't code-signed yet.
-> Click **More info → Run anyway**, or build it yourself from source (below).
+Open a file directly: `harshpad notes.txt` (a missing file starts empty and saves to that name).
+Drag a file onto the window to open it.
 
 ## Shortcuts
 
 | Action | Shortcut |
 |---|---|
-| New / Open / Save | Ctrl+N / Ctrl+O / Ctrl+S |
-| Save As | Ctrl+Shift+S |
-| Find / Replace | Ctrl+F / Ctrl+H |
-| Find Next / Find Previous | F3 / Shift+F3 |
-| Zoom in / out / reset | Ctrl+Plus / Ctrl+Minus / Ctrl+0 |
-| Undo / Redo / Select all | Ctrl+Z / Ctrl+Y / Ctrl+A |
-
-Word Wrap is in **Format**, and the status bar (line, column, zoom, line endings, encoding) is in **View**.
+| New / Open / Save | <kbd>Ctrl+N</kbd> / <kbd>Ctrl+O</kbd> / <kbd>Ctrl+S</kbd> |
+| Save As | <kbd>Ctrl+Shift+S</kbd> |
+| Find / Replace | <kbd>Ctrl+F</kbd> / <kbd>Ctrl+H</kbd> |
+| Find Next / Previous | <kbd>F3</kbd> / <kbd>Shift+F3</kbd> |
+| Zoom in / out / reset | <kbd>Ctrl++</kbd> / <kbd>Ctrl+−</kbd> / <kbd>Ctrl+0</kbd> |
+| Undo / Redo / Select all | <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+A</kbd> |
 
 ## The CLI
 
+The same engine without a window, for scripts and AI agents:
+
 ```text
-harshpad-cli commands                                   # every command, its menu and shortcut
-harshpad-cli info notes.txt                             # encoding, line endings, lines, characters
-harshpad-cli replace notes.txt "teh" "the" --match-case # replace all, saved atomically
+harshpad-cli info notes.txt                              # encoding, line endings, lines, characters
+harshpad-cli replace notes.txt "teh" "the" --match-case  # replace all, saved atomically
+harshpad-cli commands                                    # every command, its menu and shortcut
 ```
 
 ## Build from source
@@ -79,43 +125,39 @@ harshpad-cli replace notes.txt "teh" "the" --match-case # replace all, saved ato
 ```sh
 git clone https://github.com/hvpathak/HarshPad
 cd HarshPad
-cargo build --release      # target/release/harshpad.exe and harshpad-cli.exe
+cargo run --release -p harshpad
 cargo test --workspace
 ```
 
-Needs Rust 1.88+ (edition 2024). On the `x86_64-pc-windows-gnu` toolchain, put MinGW-w64 on `PATH`.
+Rust 1.88+. On Linux, install GTK 3 and xkbcommon headers first
+(`sudo apt install libgtk-3-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev`).
 
 ## How it's built
 
 ```text
-crates/core        the engine: documents, encodings, find/replace, the command catalog
-                   (no UI code at all, so everything is testable headlessly)
+crates/core        the engine: documents, encodings, find/replace, the command catalog (no UI code)
 apps/harshpad      the desktop app: a thin egui shell that draws the engine's state
 apps/harshpad-cli  the same engine from the command line
 ```
 
-- **Everything is a command.** Each action has one entry in a catalog (`file.saveAs`, `edit.findNext`, …)
-  with its label, menu and shortcut. The menu bar, keyboard shortcuts and CLI are all generated from it.
-- **The UI is thin.** Editing logic lives in `crates/core`, never in the window code.
-- **Tests are the gate.** Encodings round-trip byte-for-byte, malformed files can't panic, find/replace is
-  tested on non-ASCII text, and saving into a missing folder fails cleanly without losing the edit.
-- **Clean-room.** HarshPad was written from scratch by observing how Notepad behaves.
-  No Microsoft code, assets or decompiled code are used.
+- **Everything is a command.** Menus, shortcuts and the CLI are all generated from one catalog.
+- **Tests are the gate.** Encodings round-trip byte for byte, malformed files can't panic, find/replace is
+  tested on non-ASCII text, and CI runs everything on Windows, macOS and Linux.
+- **Clean-room.** Written from scratch by observing how the classic notepad behaves. No code, icons or
+  assets were copied.
 
-## Roadmap
+## Coming next: HarshPad Studio
 
-- [ ] Tabs
-- [ ] Go To Line (Ctrl+G) and Time/Date (F5)
-- [ ] Print
-- [x] App icon
-- [ ] Code signing
-- [ ] Colour emoji
-- [ ] Light / dark theme switch
+HarshPad is growing into one app for **plain text, rich documents and PDFs**, all in tabs that work the same way:
 
-Ideas and pull requests are welcome. Please keep the rules: no `unwrap`/`panic`/`unsafe` outside tests,
+- **Write:** headings, bold/italic/underline, colours, lists, links; open and save `.docx` and Markdown.
+- **Read PDFs:** sharp at any zoom, thumbnails, search, copy text.
+- **Organize PDFs:** rotate, delete, reorder, merge, split, extract pages.
+- **Comment and sign:** highlights, notes, ink, signatures; export any document to PDF.
+
+Ideas and pull requests are welcome. The house rules: no `unwrap`/`panic`/`unsafe` outside tests,
 and every change comes with a test.
 
 ## License
 
-[MIT](LICENSE). HarshPad is an independent project and is not affiliated with or endorsed by Microsoft.
-"Notepad" and "Windows" are trademarks of Microsoft Corporation.
+[MIT](LICENSE). HarshPad is an independent project.
