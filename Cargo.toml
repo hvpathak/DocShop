@@ -12,8 +12,8 @@ repository = "https://github.com/hvpathak/HarshPad"
 harshpad-core = { path = "crates/core" }
 harshpad-rich = { path = "crates/rich" }
 harshpad-layout = { path = "crates/layout" }
-eframe = "0.31"
-rfd = "0.15"
+eframe = "0.37"
+rfd = "0.17"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
