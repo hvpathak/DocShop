@@ -10,6 +10,7 @@ mod recovery;
 mod ribbon;
 mod settings;
 mod text_tab;
+mod wordcraft_host;
 mod writer_tab;
 
 use std::path::PathBuf;
@@ -42,10 +43,21 @@ fn main() -> eframe::Result {
         viewport = viewport.with_icon(icon);
     }
 
-    let options = eframe::NativeOptions {
+    let mut options = eframe::NativeOptions {
         viewport,
         ..Default::default()
     };
+    // The GPU setup WordCraft uses: DirectX 12 where it works, OpenGL otherwise (Windows),
+    // and no indirect validation on Intel Macs.
+    #[cfg(target_os = "windows")]
+    wordcraft_host::graphics::configure(&mut options, eframe::wgpu::Backends::from_env());
+    #[cfg(target_os = "macos")]
+    wordcraft_host::graphics::configure_indirect_validation(
+        &mut options,
+        wordcraft_host::graphics::skips_indirect_validation(true, cfg!(target_arch = "x86_64")),
+    );
+    // Fonts added in the Writer, before any Writer tab lays out text.
+    wordcraft_host::prefs::load_user_fonts();
     eframe::run_native(
         app::APP_NAME,
         options,

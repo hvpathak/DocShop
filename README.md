@@ -5,9 +5,9 @@
 <h1 align="center">HarshPad Studio</h1>
 
 <p align="center">
-  <b>A notepad, a writer and (soon) a PDF tool, in one fast app that moves to one rhythm.</b><br>
-  Plain text and rich documents in tabs · <code>.docx</code> · Markdown · one toolbar, one set of shortcuts.<br>
-  Opens in ~30 ms. No installer, no account, no telemetry. Windows, macOS and Linux.
+  <b>A notepad, a full word processor and (soon) a PDF tool, in one app with browser-style tabs.</b><br>
+  The Writer is <a href="https://github.com/storytold/wordcraft">WordCraft</a>, built in. Plain text, <code>.docx</code>, <code>.doc</code>, <code>.odt</code>, <code>.rtf</code>, Markdown.<br>
+  No installer, no account, no telemetry. Windows, macOS and Linux.
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/studio.png" alt="HarshPad Studio: browser-style tabs in the title bar, a quick-access row with AutoSave, Save, Undo and Redo, the document name and 'Saved', a command search box and the Studio mode switch; below it a ribbon with File, Home, Insert, Draw, Design, Layout, References, Mailings, Review, View and Help, the Home tab showing Clipboard, Font, Paragraph, Styles and Editing groups; a ruler; and a white page with the heading 'Quarterly plan', bold and italic text, a bulleted list and a quote" width="100%">
+  <img src="docs/images/studio.png" alt="HarshPad with a Writer tab open: browser-style tabs in the title bar, then the full word-processor ribbon (File, Home, Insert, Draw, Design, Layout, References, Mailings, Review, View, Developer, Zotero, Help) with Font, Paragraph, Styles and Editing groups, rulers, and a page with the heading Quarterly plan, bold and italic text, a bulleted list and a quote; the status bar reads Page 1 of 1, 25 words" width="100%">
 </p>
 
 ---
@@ -103,19 +103,20 @@ in a different format.
 
 ## The Writer
 
-| | |
-|---|---|
-| ✍️ **Styles** | Title, Heading 1–3, Quote, Code block, bulleted and numbered lists (Enter continues a list; Enter on an empty item ends it) |
-| 🅱️ **Formatting** | Bold, italic, underline, strikethrough, inline code, font size, text colour, highlight, links, alignment, clear formatting |
-| ⚡ **Markdown shortcuts** | Type `- `, `1. `, `# `, `## `, `> ` at the start of a line and it becomes a list, heading or quote |
-| 📂 **Files** | Open and save `.docx`, Markdown, and the lossless `.hpdoc` format |
-| 🔍 **Find & Replace** | Works across styles; replacing keeps each match's formatting |
-| 🔁 **Sync** | *Open as plain text* turns any document into Markdown; *Open as document* turns Markdown into formatting |
+<p align="center">
+  <img src="docs/images/writer.png" alt="The Writer File screen inside a HarshPad tab: Home, New, Open, Info, Recover, Save, Save As, Print, Export, Close and Options on the left; Good afternoon with templates for a blank document, a studio handbook, a letter and a résumé; and a Recent list with Quarterly plan.docx" width="100%">
+</p>
 
-Shortcuts you already know: <kbd>Ctrl+B/I/U</kbd>, <kbd>Ctrl+L/E/R/J</kbd> to align, <kbd>Ctrl+Alt+1/2/3</kbd> headings,
-<kbd>Ctrl+Alt+0</kbd> normal text, <kbd>Ctrl+Shift+L</kbd> bullets, <kbd>Ctrl+K</kbd> link, <kbd>Ctrl+]</kbd>/<kbd>Ctrl+[</kbd> size,
-<kbd>Ctrl+Space</kbd> clear formatting.
+Every Writer tab is **[WordCraft](https://github.com/storytold/wordcraft)**, the open-source word
+processor, running inside HarshPad. That's the whole of it, not a subset: the full ribbon and command
+catalog, styles and themes, tables, page layout and sections, headers and footers, footnotes,
+references and citations, comments, track changes, compare, proofing, mail merge, pictures, shapes,
+charts, SmartArt, equations and drawing, with native open/save dialogs, printing, the rich clipboard,
+crash recovery and your own dictionary and fonts.
 
+It opens .docx, .doc, .rtf, .odt, .html and Markdown, and saves those plus PDF. HarshPad adds
+the browser-style tabs, so a document, a plain-text note and (soon) a PDF sit side by side in one window.
+WordCraft is pinned to an exact upstream version, and new WordCraft releases come into HarshPad as updates.
 ## The Notepad
 
 <p align="center">
@@ -143,10 +144,8 @@ On a mid-range laptop (i5-13450HX), release build:
 
 | | |
 |---|---|
-| Window open (warm start) | **~30 ms** |
-| Memory with a document open | **~76 MB** |
-| App size | **5.7 MB**, a single file |
-| CLI: 200,000 replacements in a 10.7 MB file | **149 ms** |
+| Notepad: CLI, 200,000 replacements in a 10.7 MB file | **149 ms** |
+| App size and start-up with the Writer built in | measured again for v0.6 |
 
 ## Download
 
@@ -178,7 +177,7 @@ cargo run --release -p harshpad
 cargo test --workspace
 ```
 
-Rust 1.88+. On Linux, install GTK 3 and xkbcommon headers first
+Rust 1.95+. On Linux, install GTK 3 and xkbcommon headers first
 (`sudo apt install libgtk-3-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev`).
 
 ## How it's built
@@ -186,27 +185,29 @@ Rust 1.88+. On Linux, install GTK 3 and xkbcommon headers first
 ```text
 crates/core     commands (one catalog for every tab kind), modes, plain-text documents, find, undo
 crates/rich     rich documents: styled-text model, .docx (from the public ECMA-376 standard), Markdown, .hpdoc
-apps/harshpad   the desktop app: browser-style tabs, the ribbon, Notepad and Writer views
+crates/layout   page layout for the built-in document view
+apps/harshpad   the desktop app: browser-style tabs, the Notepad, and Writer tabs hosting WordCraft
 apps/harshpad-cli  the same engines from the command line
 ```
 
 - **Engine first:** all editing logic lives in libraries with no UI code, tested headlessly (50+ tests).
-- **Clean-room:** behaviour is studied, never copied. `.docx` support is written from the public standard.
-- **Following upstream:** a weekly [radar](docs/upstream.md) reads the public feature notes of the open-source
-  writer and PDF projects we track (never their code) and opens an issue for anything new; library updates
-  arrive through Dependabot and are tested on every platform.
+- **Built on WordCraft:** the Writer is WordCraft's editor and its desktop services, used under its open-source
+  license (MIT OR Apache-2.0) and pinned by git revision; see [licenses](licenses/README.md).
+- **Following upstream:** a weekly [radar](docs/upstream.md) watches the projects we build on, and moving to a new
+  WordCraft version is a one-line change, tested on every platform.
 
 ## Roadmap
 
 Full area-by-area tracker: **[Road to 100%](docs/parity.md)**.
 
-- **PDF** (next): read with sharp zoom, thumbnails, search, copy text; rotate, delete, reorder, merge, split pages.
+- **Writer:** done (WordCraft). Next for it: the agent control channel, opening from Finder on macOS.
+- **PDF** (next): the PdfCraft editor in PDF tabs, built in the same way; read with sharp zoom, thumbnails, search, copy text; rotate, delete, reorder, merge, split pages.
 - **Comment & sign:** highlights, notes, ink, signatures; export any document to PDF with page numbers.
-- **Writer:** tables, images, headers and footers, spelling.
 
 Ideas and pull requests are welcome. The house rules: no `unwrap`/`panic`/`unsafe` outside tests,
 and every change comes with a test.
 
 ## License
 
-[MIT](LICENSE). HarshPad is an independent project.
+[MIT](LICENSE). The built-in Writer is WordCraft (MIT OR Apache-2.0); its license texts and NOTICE are in
+[licenses/wordcraft](licenses/wordcraft). HarshPad is an independent project.

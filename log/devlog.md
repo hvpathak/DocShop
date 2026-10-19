@@ -1,5 +1,16 @@
 # Dev log
 
+## 2026-10-19: v0.6.0, the Writer is WordCraft
+- User's decision: build on WordCraft's code (MIT OR Apache-2.0) instead of rewriting it, for 100% of its features.
+- HarshPad moved to egui/eframe 0.36 on wgpu, WordCraft's version, so its editor runs inside a HarshPad tab
+  (its panels draw into the Ui the tab gives it).
+- Writer tabs host `wordcraft_ui_egui::WordApp`, pinned by git rev, with WordCraft's patched krilla.
+  New documents and .docx/.doc/.rtf/.odt/.html/.md open there; .txt stays in the Notepad; our bars step aside.
+- WordCraft's desktop services ported into `wordcraft_host`: native file dialogs, printing, rich clipboard,
+  animations, GPU setup, region; preferences, dictionary, fonts and recovery in `<data>/HarshPad/writer`.
+- Welcome card at start until "Don't show this again"; no console window in test builds.
+- Earlier the same day: own layout engine and page editor (crates/layout), kept for the built-in .hpdoc view.
+
 ## 2026-10-19: v0.5.0, the growing path (for Harshal)
 - Growing path: Chapter 1 Notepad → Chapter 2 Writer → Chapter 3 PDF, unlocked one by one with the parent
   PIN; each chapter keeps what came before. Chapter cards at unlock and at start; locked choices stay visible

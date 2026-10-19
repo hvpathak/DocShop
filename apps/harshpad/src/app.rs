@@ -242,6 +242,8 @@ pub struct StudioApp {
     /// Clipboard events for the editor, sent once it has focus.
     pending_input: Vec<egui::Event>,
     last_autosave: Instant,
+    /// For Writer tabs, which need it to set up their dialogs and theme.
+    ctx: egui::Context,
 }
 
 impl StudioApp {
@@ -270,6 +272,7 @@ impl StudioApp {
             closed: Vec::new(),
             pending_input: Vec::new(),
             last_autosave: Instant::now(),
+            ctx: cc.egui_ctx.clone(),
         };
         if !app.settings.mode.is_available() {
             app.settings.mode = Mode::Studio;
@@ -493,7 +496,7 @@ impl StudioApp {
         let content = match kind {
             TabKind::Text => Content::Text(Box::new(TextTab::new(Document::new(), id))),
             // New documents open in the WordCraft editor.
-            TabKind::Doc => Content::Writer(Box::new(WriterTab::new())),
+            TabKind::Doc => Content::Writer(Box::new(WriterTab::new(&self.ctx))),
         };
         let id = self.id();
         self.tabs.push(Tab { id, content });
@@ -784,7 +787,7 @@ impl StudioApp {
             .map(|e| e.to_string_lossy().to_lowercase())
             .unwrap_or_default();
         let content = if WRITER_FILES.contains(&ext.as_str()) {
-            match WriterTab::open(path) {
+            match WriterTab::open(&self.ctx, path) {
                 Ok(w) => Content::Writer(Box::new(w)),
                 Err(e) => return show_error(&format!("Could not open {}:\n{e}", path.display())),
             }
@@ -2231,7 +2234,7 @@ fn read_limited(path: &Path) -> io::Result<Vec<u8>> {
 }
 
 impl eframe::App for StudioApp {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx_owned = ui.ctx().clone();
         let ctx = &ctx_owned;
         self.handle_close_request(ctx);
@@ -2297,19 +2300,21 @@ impl eframe::App for StudioApp {
         };
         let zoom = self.zoom;
         let ruler = self.settings.ruler;
-        let frame = if writer {
+        let panel_frame = if writer {
             egui::Frame::NONE
         } else {
             egui::Frame::central_panel(&ctx.global_style()).fill(backdrop)
         };
-        egui::CentralPanel::default().frame(frame).show(ui, |ui| {
-            match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
-                Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
-                Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),
-                Some(Content::Writer(w)) => w.ui(ui),
-                None => {}
-            }
-        });
+        egui::CentralPanel::default()
+            .frame(panel_frame)
+            .show(ui, |ui| {
+                match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
+                    Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
+                    Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),
+                    Some(Content::Writer(w)) => w.ui(ui, frame),
+                    None => {}
+                }
+            });
         if let Some(c) = self.dialogs(ctx) {
             clicked = clicked.or(Some(c));
         }
@@ -2320,6 +2325,15 @@ impl eframe::App for StudioApp {
             self.run_act(act, ctx);
         }
         chrome::border(ctx);
+    }
+
+    fn on_exit(&mut self) {
+        for tab in &mut self.tabs {
+            if let Content::Writer(w) = &mut tab.content {
+                w.save_prefs(true);
+            }
+        }
+        crate::wordcraft_host::print::finish_pending_jobs();
     }
 }
 

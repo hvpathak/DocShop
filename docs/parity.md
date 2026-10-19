@@ -18,7 +18,7 @@ and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the dist
 | Chapter | Score | |
 |---|---|---|
 | 1 · Notepad | **95%** | `███████████████████░` |
-| 2 · Writer | **18%** | `████░░░░░░░░░░░░░░░░` |
+| 2 · Writer | **100% of WordCraft** | `████████████████████` |
 | 3 · PDF | **0%** (next) | `░░░░░░░░░░░░░░░░░░░░` |
 
 ## Chapter 1 · Notepad
@@ -32,29 +32,28 @@ and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the dist
 
 ## Chapter 2 · Writer
 
-| Area | Weight | Score | Have | Missing |
-|---|---|---|---|---|
-| Typing, selection, clipboard, undo, find/replace | 12 | 55% | Typing with style carry-over, undo, clipboard, find/replace keeping formatting | Paste special, advanced find, column select, clipboard pane |
-| Character and paragraph formatting | 11 | 35% | Bold, italic, underline, strike, code, size, colour, highlight, alignment, clear; the model, layout and .docx already carry fonts, super/subscript, caps, letter spacing, indents, spacing and line spacing | Ribbon controls and Font/Paragraph dialogs for those, borders, shading |
-| Styles and themes | 8 | 20% | Styles gallery (Normal, Title, Heading 1–3, Quote, Code) | Custom styles, style pane, style sets, themes |
-| Lists | 6 | 35% | Bullets, numbering, Enter continues, empty item ends, Markdown shortcuts | Multilevel lists, restart, list styles |
-| Tables | 6 | 0% | | Insert, merge/split, styles, sort, formulas |
-| Page layout and sections | 7 | 15% | Own layout engine: real pages, one-inch margins, page breaks, keep-with-next, keep lines together, ruler | Margins/size/orientation UI, columns, section breaks |
-| Headers, footers, page numbers, fields | 5 | 0% | | All |
-| Footnotes and endnotes | 3 | 0% | | All |
-| References (contents, citations, captions, index) | 5 | 0% | | All |
-| Review (comments, track changes, compare, protect) | 6 | 5% | Restrict Editing (read-only) | Comments, track changes, compare, editing restrictions |
-| Proofing (spelling, grammar, thesaurus) | 5 | 5% | Word Count | Spelling, grammar, thesaurus, languages |
-| Mailings | 2 | 0% | | Mail merge, envelopes, labels |
-| Pictures, shapes, text boxes | 4 | 0% | | All |
-| Equations | 1 | 0% | | All |
-| Charts, diagrams, drawing | 4 | 0% | | All |
-| View (modes, zoom, panes) | 3 | 25% | Zoom, ruler, status bar, print layout with every page | Read mode, web layout, navigation pane, outline |
-| Backstage, files, options | 3 | 30% | New/open/save, .docx/.md/.hpdoc, AutoSave, recovery | Print, export PDF, more formats (ODT, RTF), options |
-| Right-to-left scripts | 1 | 0% | | All |
-| East Asian typography | 1 | 0% | | All |
-| Accessibility | 1 | 10% | Keyboard shortcuts for every command | Screen-reader text, checker, alt text |
-| **Writer total** | **100** | **18%** | | |
+Since v0.6 every Writer tab **is the WordCraft editor** (github.com/storytold/wordcraft, MIT OR
+Apache-2.0), pinned to an exact upstream commit and hosted inside HarshPad's tabs. So the Writer has
+**100% of WordCraft's features**: its full ribbon and command catalog, styles, tables, page layout and
+sections, headers/footers, footnotes, references and citations, review (comments, track changes,
+compare, protect), proofing, mailings, pictures, shapes, charts, SmartArt, equations, drawing,
+views, and every file format it reads and writes (.docx, .doc, .rtf, .odt, .html, .md and more).
+
+| What WordCraft's own app adds around the editor | In HarshPad |
+|---|---|
+| Native open/save dialogs (non-blocking) | ✔ |
+| Printing through the system spooler | ✔ |
+| Rich clipboard: pictures, HTML, RTF, MathML | ✔ |
+| System animation setting, desktop theme | ✔ |
+| GPU setup that works on every Windows machine | ✔ |
+| Preferences, recent files, custom dictionary, added fonts | ✔ (kept in HarshPad's own folder) |
+| Crash recovery of unsaved documents | ✔ |
+| Region-based paper size for new documents | ✔ |
+| Agent control channel (control port) | next |
+| Open files from Finder (macOS), default app for documents | next |
+
+**How updates arrive:** when you say *get their update*, the pinned commit in Cargo.toml moves to
+WordCraft's latest, and HarshPad is rebuilt, tested on all platforms and released.
 
 ## Chapter 3 · PDF
 
@@ -80,11 +79,8 @@ Feature counts are the size of each area as listed in PdfCraft's public checklis
 
 ## Order of work
 
-The Writer reaches 100% first, then the PDF chapter begins.
-
-1. **Writer, by weight of the gap:** character and paragraph formatting (fonts, spacing, indents, dialogs),
-   styles and themes, tables, page layout and sections, headers/footers/page numbers, lists, pictures and
-   shapes, review (comments, track changes), proofing, references, footnotes, view modes, the rest.
-2. **Chapter 3, phase 2:** PDF reader and page organizer (areas A, B, D).
-3. **Chapter 3, phase 3 onward:** comments, forms, signatures, export, then every remaining PDF area.
-4. New items from the weekly radar join the list in the area they belong to.
+1. **Writer: done** (v0.6, WordCraft inside HarshPad). Left: the agent control channel, Finder
+   open on macOS, and registering HarshPad as the default app for documents.
+2. **Chapter 3 · PDF next:** the PdfCraft editor in PDF tabs, the same way (its patched PDF renderer
+   and parser included), then every PdfCraft area above reaches 100% with it.
+3. New upstream features arrive with each *get their update*.
