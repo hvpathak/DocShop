@@ -2,6 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod doc_tab;
+mod fonts;
+mod recovery;
+mod settings;
+mod text_tab;
 
 use std::path::PathBuf;
 
@@ -9,13 +14,14 @@ use std::path::PathBuf;
 const ICON_PNG: &[u8] = include_bytes!("../../../assets/icon-256.png");
 
 fn main() -> eframe::Result {
-    // Like notepad.exe: `harshpad.exe some-file.txt` opens that file.
+    // `harshpad notes.txt` or `harshpad report.docx` opens that file.
     let initial_file = std::env::args_os().nth(1).map(PathBuf::from);
 
     let mut viewport = eframe::egui::ViewportBuilder::default()
         .with_title(app::APP_NAME)
-        .with_inner_size([900.0, 620.0])
-        .with_min_inner_size([320.0, 200.0])
+        .with_app_id("harshpad")
+        .with_inner_size([1100.0, 760.0])
+        .with_min_inner_size([480.0, 320.0])
         .with_drag_and_drop(true);
     // A bad icon must never stop the editor from starting.
     if let Ok(icon) = eframe::icon_data::from_png_bytes(ICON_PNG) {
@@ -26,10 +32,9 @@ fn main() -> eframe::Result {
         viewport,
         ..Default::default()
     };
-
     eframe::run_native(
         app::APP_NAME,
         options,
-        Box::new(move |cc| Ok(Box::new(app::NotepadApp::new(cc, initial_file)))),
+        Box::new(move |cc| Ok(Box::new(app::StudioApp::new(cc, initial_file)))),
     )
 }

@@ -5,5 +5,7 @@
 pub mod commands;
 pub mod document;
 pub mod find;
+pub mod modes;
 pub mod session;
 pub mod text_pos;
+pub mod undo;

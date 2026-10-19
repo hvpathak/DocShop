@@ -1,302 +1,810 @@
-//! The egui shell. It draws the session and turns menu clicks and key presses into
-//! catalog commands; the editing logic itself lives in `harshpad-core`.
+//! HarshPad Studio: tabs of plain text and rich documents in one window, with one
+//! toolbar layout, one status bar, one find bar and one command catalog for both.
 
 use std::cmp::Reverse;
 use std::io;
-use std::ops::Range;
 use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
 use eframe::egui::{
-    self, Align, KeyboardShortcut, Layout, Modifiers,
-    text::{CCursor, CCursorRange},
+    self, Align, Align2, Color32, KeyboardShortcut, Layout, Modifiers, RichText, vec2,
 };
-use harshpad_core::commands::{self, CATALOG, Command, Key, Menu, Shortcut};
-use harshpad_core::document::Document;
-use harshpad_core::session::Session;
-use harshpad_core::text_pos;
+use harshpad_core::commands::{self, CATALOG, Command, Key, Menu, Shortcut, TabKind};
+use harshpad_core::document::{Document, write_atomically};
+use harshpad_core::modes::{self, Mode};
+use harshpad_core::session::FindOptions;
+use harshpad_rich::{Align as TextAlign, Flag, ParaStyle, Rgb, RichDoc, RichFormat, markdown};
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 
-pub const APP_NAME: &str = "HarshPad";
+use crate::doc_tab::DocTab;
+use crate::fonts;
+use crate::recovery::{Recovery, Saved};
+use crate::settings::Settings;
+use crate::text_tab::{Step, TextTab};
 
-const EDITOR_ID: &str = "editor";
-const DEFAULT_FONT_SIZE: f32 = 15.0;
-const MIN_FONT_SIZE: f32 = 6.0;
-const MAX_FONT_SIZE: f32 = 72.0;
+pub const APP_NAME: &str = "HarshPad";
+const TEXT_SIZE: f32 = 15.0;
 const ZOOM_STEP: f32 = 1.1;
+/// Documents opened from disk larger than this are refused politely.
+const MAX_OPEN_BYTES: u64 = 64 * 1024 * 1024;
+const ACCENT: Color32 = Color32::from_rgb(30, 110, 210);
+
+enum Content {
+    Text(Box<TextTab>),
+    Doc(Box<DocTab>),
+}
+
+struct Tab {
+    id: u64,
+    content: Content,
+}
+
+impl Tab {
+    fn kind(&self) -> TabKind {
+        match self.content {
+            Content::Text(_) => TabKind::Text,
+            Content::Doc(_) => TabKind::Doc,
+        }
+    }
+
+    fn title(&self) -> String {
+        match &self.content {
+            Content::Text(t) => t.title(),
+            Content::Doc(d) => d.title(),
+        }
+    }
+
+    fn path(&self) -> Option<&Path> {
+        match &self.content {
+            Content::Text(t) => t.path(),
+            Content::Doc(d) => d.path.as_deref(),
+        }
+    }
+
+    fn is_dirty(&self) -> bool {
+        match &self.content {
+            Content::Text(t) => t.is_dirty(),
+            Content::Doc(d) => d.is_dirty(),
+        }
+    }
+
+    fn is_pristine(&self) -> bool {
+        match &self.content {
+            Content::Text(t) => t.is_pristine(),
+            Content::Doc(d) => d.is_pristine(),
+        }
+    }
+
+    fn focus(&self, ctx: &egui::Context) {
+        match &self.content {
+            Content::Text(t) => t.focus(ctx),
+            Content::Doc(d) => d.focus(ctx),
+        }
+    }
+
+    fn recovery_copy(&self) -> Option<Saved> {
+        let (kind, content) = match &self.content {
+            Content::Text(t) => ("text", t.text().to_owned()),
+            Content::Doc(d) => ("doc", String::from_utf8(d.doc.to_json().ok()?).ok()?),
+        };
+        Some(Saved {
+            kind: kind.into(),
+            title: self.title(),
+            path: self.path().map(Path::to_path_buf),
+            content,
+        })
+    }
+}
 
 #[derive(Default)]
 struct FindBar {
     open: bool,
     show_replace: bool,
-    /// Move keyboard focus into the search box on the next frame.
     focus_needle: bool,
+    options: FindOptions,
 }
 
-pub struct NotepadApp {
-    session: Session,
-    word_wrap: bool,
-    font_size: f32,
+enum Dialog {
+    Palette {
+        query: String,
+        focus: bool,
+    },
+    Link {
+        url: String,
+        focus: bool,
+    },
+    /// Asks for the parent PIN before switching mode (`Some`) or removing the lock (`None`).
+    Unlock {
+        then: Option<Mode>,
+        pin: String,
+        wrong: bool,
+        focus: bool,
+    },
+    SetLock {
+        pin: String,
+        confirm: String,
+        error: Option<&'static str>,
+        focus: bool,
+    },
+}
+
+pub struct StudioApp {
+    tabs: Vec<Tab>,
+    active: usize,
+    next_id: u64,
+    zoom: f32,
     show_status_bar: bool,
-    find_bar: FindBar,
-    /// Caret position as a character index (what egui reports).
-    caret: usize,
-    /// Set once the user agreed to close, so the next close request goes through.
+    find: FindBar,
+    dialog: Option<Dialog>,
+    status: Option<String>,
     allow_close: bool,
-    status_message: Option<String>,
     window_title: String,
+    recovery: Recovery,
+    settings: Settings,
 }
 
-impl NotepadApp {
+impl StudioApp {
     pub fn new(cc: &eframe::CreationContext<'_>, initial_file: Option<PathBuf>) -> Self {
-        // Ctrl +/- zooms the text (Notepad behaviour), not the whole interface.
+        // Ctrl +/- zooms the page, not the whole interface.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
-        install_system_fonts(&cc.egui_ctx);
-
+        fonts::install(&cc.egui_ctx);
         let mut app = Self {
-            session: Session::default(),
-            word_wrap: true,
-            font_size: DEFAULT_FONT_SIZE,
+            tabs: Vec::new(),
+            active: 0,
+            next_id: 1,
+            zoom: 1.0,
             show_status_bar: true,
-            find_bar: FindBar::default(),
-            caret: 0,
+            find: FindBar::default(),
+            dialog: None,
+            status: None,
             allow_close: false,
-            status_message: None,
             window_title: String::new(),
+            recovery: Recovery::new(),
+            settings: Settings::load(),
         };
-        if let Some(path) = initial_file {
-            app.load(&path);
+        if !app.settings.mode.is_available() {
+            app.settings.mode = Mode::Studio;
         }
+        let recovered = app.recovery.load();
+        if !recovered.is_empty() {
+            let n = recovered.len();
+            for saved in recovered {
+                app.restore(saved);
+            }
+            app.status = Some(format!("Recovered {n} unsaved tab(s) from last time"));
+        }
+        if let Some(path) = initial_file {
+            app.open_path(&path);
+        }
+        app.enforce_mode();
         app
     }
 
-    // ---- Command dispatch ---------------------------------------------------
+    // ---- Modes -------------------------------------------------------------------------
 
-    /// Last-resort guard: a bug in a command shows an error and keeps the text.
+    /// The kind "New" makes: plain text in Studio and Notepad, documents in Writer.
+    fn home_kind(&self) -> TabKind {
+        self.settings.mode.home_kind()
+    }
+
+    /// Whether the current mode offers a command at all.
+    fn offered(&self, spec: &commands::CommandSpec) -> bool {
+        self.settings.mode.allows_command(spec)
+    }
+
+    fn request_mode(&mut self, target: Mode) {
+        if !target.is_available() {
+            self.status = Some("PDF tools arrive in the next update".into());
+        } else if target == self.settings.mode {
+        } else if self.settings.locked() {
+            self.dialog = Some(Dialog::Unlock {
+                then: Some(target),
+                pin: String::new(),
+                wrong: false,
+                focus: true,
+            });
+        } else {
+            self.set_mode(target);
+        }
+    }
+
+    fn set_mode(&mut self, target: Mode) {
+        self.settings.mode = target;
+        self.settings.save();
+        self.enforce_mode();
+        self.status = Some(format!("Mode: {}", target.label()));
+    }
+
+    /// Turns tabs of kinds the mode doesn't allow into the mode's kind (as new,
+    /// unsaved tabs, so nothing on disk is overwritten), and keeps one tab open.
+    fn enforce_mode(&mut self) {
+        let mode = self.settings.mode;
+        for i in 0..self.tabs.len() {
+            let Some(tab) = self.tabs.get(i) else {
+                continue;
+            };
+            if mode.allows(tab.kind()) {
+                continue;
+            }
+            let id = self.id();
+            if let Some(tab) = self.tabs.get_mut(i) {
+                let old = std::mem::replace(
+                    &mut tab.content,
+                    Content::Text(Box::new(TextTab::new(Document::new(), id))),
+                );
+                tab.content = convert(old, mode.home_kind(), id, true);
+                tab.id = id;
+            }
+        }
+        if self.tabs.is_empty() {
+            self.new_tab(self.home_kind());
+        }
+        self.active = self.active.min(self.tabs.len().saturating_sub(1));
+    }
+
+    fn id(&mut self) -> u64 {
+        self.next_id += 1;
+        self.next_id
+    }
+
+    fn restore(&mut self, saved: Saved) {
+        let id = self.id();
+        let content = if saved.kind == "doc" {
+            let Ok(doc) = RichDoc::from_json(saved.content.as_bytes()) else {
+                return;
+            };
+            let format = saved.path.as_deref().and_then(RichFormat::from_path);
+            let mut tab = DocTab::new(doc, saved.path, format, id);
+            tab.mark_dirty();
+            Content::Doc(Box::new(tab))
+        } else {
+            let mut doc = saved
+                .path
+                .as_deref()
+                .map_or_else(Document::new, Document::new_at);
+            doc.text = saved.content;
+            doc.mark_changed();
+            Content::Text(Box::new(TextTab::new(doc, id)))
+        };
+        self.tabs.push(Tab { id, content });
+    }
+
+    fn tab(&self) -> Option<&Tab> {
+        self.tabs.get(self.active)
+    }
+
+    fn tab_mut(&mut self) -> Option<&mut Tab> {
+        self.tabs.get_mut(self.active)
+    }
+
+    fn kind(&self) -> TabKind {
+        self.tab().map_or(TabKind::Text, Tab::kind)
+    }
+
+    fn text_tab(&mut self) -> Option<&mut TextTab> {
+        match &mut self.tab_mut()?.content {
+            Content::Text(t) => Some(t),
+            Content::Doc(_) => None,
+        }
+    }
+
+    fn doc_tab(&mut self) -> Option<&mut DocTab> {
+        match &mut self.tab_mut()?.content {
+            Content::Doc(d) => Some(d),
+            Content::Text(_) => None,
+        }
+    }
+
+    // ---- Tabs ------------------------------------------------------------------------
+
+    fn add_tab(&mut self, content: Content) {
+        let id = self.id();
+        let tab = Tab { id, content };
+        // A brand-new empty tab is replaced rather than kept beside the new one.
+        if self.tab().is_some_and(Tab::is_pristine) {
+            if let Some(slot) = self.tabs.get_mut(self.active) {
+                *slot = tab;
+            }
+        } else {
+            self.tabs.push(tab);
+            self.active = self.tabs.len() - 1;
+        }
+    }
+
+    fn new_tab(&mut self, kind: TabKind) {
+        let id = self.next_id + 1;
+        let content = match kind {
+            TabKind::Text => Content::Text(Box::new(TextTab::new(Document::new(), id))),
+            TabKind::Doc => Content::Doc(Box::new(DocTab::new(RichDoc::new(), None, None, id))),
+        };
+        let id = self.id();
+        self.tabs.push(Tab { id, content });
+        self.active = self.tabs.len() - 1;
+    }
+
+    fn close_tab(&mut self, index: usize) {
+        if !self.confirm_discard(index) {
+            return;
+        }
+        if index < self.tabs.len() {
+            self.tabs.remove(index);
+        }
+        if self.tabs.is_empty() {
+            self.new_tab(self.home_kind());
+        }
+        self.active = self.active.min(self.tabs.len() - 1);
+    }
+
+    // ---- Commands ----------------------------------------------------------------------
+
+    /// Last-resort guard: a bug in a command shows a message and keeps every tab.
     fn dispatch(&mut self, command: Command, ctx: &egui::Context) {
         let outcome = panic::catch_unwind(AssertUnwindSafe(|| self.run(command, ctx)));
         if outcome.is_err() {
             let id = commands::spec_of(command).map_or("unknown", |s| s.id);
             show_error(&format!(
-                "Something went wrong while running \"{id}\". Your text is still here; \
-                 please save it."
+                "Something went wrong while running \"{id}\". Your text is still here; please save it."
             ));
         }
     }
 
     fn run(&mut self, command: Command, ctx: &egui::Context) {
+        let kind = self.kind();
+        if !commands::spec_of(command).is_some_and(|s| s.works_in(kind) && self.offered(s)) {
+            return;
+        }
+        self.status = None;
         match command {
-            Command::New => self.new_file(),
-            Command::Open => self.open_file(),
+            Command::NewText => self.new_tab(self.home_kind()),
+            Command::NewDocument => self.new_tab(TabKind::Doc),
+            Command::ModeStudio => self.request_mode(Mode::Studio),
+            Command::ModeNotepad => self.request_mode(Mode::Notepad),
+            Command::ModeWriter => self.request_mode(Mode::Writer),
+            Command::ModePdf => self.request_mode(Mode::Pdf),
+            Command::ParentLock => {
+                self.dialog = Some(if self.settings.locked() {
+                    Dialog::Unlock {
+                        then: None,
+                        pin: String::new(),
+                        wrong: false,
+                        focus: true,
+                    }
+                } else {
+                    Dialog::SetLock {
+                        pin: String::new(),
+                        confirm: String::new(),
+                        error: None,
+                        focus: true,
+                    }
+                });
+            }
+            Command::Open => self.open_dialog(),
             Command::Save => {
-                self.save();
+                self.save(self.active);
             }
             Command::SaveAs => {
-                self.save_as();
+                self.save_as(self.active);
             }
+            Command::ConvertToDocument => self.convert_to_document(),
+            Command::ConvertToText => self.convert_to_text(),
+            Command::CloseTab => self.close_tab(self.active),
             Command::Exit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
-            Command::Find => self.open_find_bar(false),
-            Command::Replace => self.open_find_bar(true),
-            Command::FindNext => self.search(ctx, Session::find_next),
-            Command::FindPrevious => self.search(ctx, Session::find_previous),
-            Command::ReplaceNext => self.search(ctx, Session::replace_next),
-            Command::ReplaceAll => {
-                let count = self.session.replace_all();
-                self.status_message = Some(format!("Replaced {count} occurrence(s)"));
+            Command::Undo | Command::Redo => {
+                let undo = command == Command::Undo;
+                let done = match self.tab_mut().map(|t| &mut t.content) {
+                    Some(Content::Text(t)) => {
+                        if undo {
+                            t.undo()
+                        } else {
+                            t.redo()
+                        }
+                    }
+                    Some(Content::Doc(d)) => {
+                        if undo {
+                            d.undo()
+                        } else {
+                            d.redo()
+                        }
+                    }
+                    None => false,
+                };
+                if !done {
+                    self.status = Some(
+                        if undo {
+                            "Nothing to undo"
+                        } else {
+                            "Nothing to redo"
+                        }
+                        .into(),
+                    );
+                }
             }
-            Command::WordWrap => self.word_wrap = !self.word_wrap,
+            Command::Find => self.open_find(false),
+            Command::Replace => self.open_find(true),
+            Command::FindNext => self.search(ctx, Step::Next),
+            Command::FindPrevious => self.search(ctx, Step::Previous),
+            Command::ReplaceNext => self.search(ctx, Step::ReplaceNext),
+            Command::ReplaceAll => {
+                let options = self.find.options.clone();
+                let count = match self.tab_mut().map(|t| &mut t.content) {
+                    Some(Content::Text(t)) => t.replace_all(&options),
+                    Some(Content::Doc(d)) => d.replace_all(&options),
+                    None => 0,
+                };
+                self.status = Some(format!("Replaced {count} occurrence(s)"));
+            }
+            Command::CommandPalette => {
+                self.dialog = Some(Dialog::Palette {
+                    query: String::new(),
+                    focus: true,
+                })
+            }
+            Command::InsertLink => {
+                let url = self
+                    .doc_tab()
+                    .and_then(|d| d.selected_link())
+                    .unwrap_or_default();
+                self.dialog = Some(Dialog::Link { url, focus: true });
+            }
+            Command::WordWrap => {
+                if let Some(t) = self.text_tab() {
+                    t.word_wrap = !t.word_wrap;
+                }
+            }
+            Command::NextTab => self.active = (self.active + 1) % self.tabs.len().max(1),
+            Command::PreviousTab => {
+                let n = self.tabs.len().max(1);
+                self.active = (self.active + n - 1) % n;
+            }
+            Command::ZoomIn => self.zoom = (self.zoom * ZOOM_STEP).min(5.0),
+            Command::ZoomOut => self.zoom = (self.zoom / ZOOM_STEP).max(0.3),
+            Command::ZoomReset => self.zoom = 1.0,
             Command::StatusBar => self.show_status_bar = !self.show_status_bar,
-            Command::ZoomIn => self.zoom(ZOOM_STEP),
-            Command::ZoomOut => self.zoom(1.0 / ZOOM_STEP),
-            Command::ZoomReset => self.font_size = DEFAULT_FONT_SIZE,
             Command::About => show_about(),
+            other => {
+                if let Some(d) = self.doc_tab() {
+                    d.apply(other);
+                }
+            }
+        }
+        if !matches!(
+            command,
+            Command::Find | Command::Replace | Command::CommandPalette | Command::InsertLink
+        ) && let Some(t) = self.tab()
+        {
+            t.focus(ctx);
         }
     }
 
-    fn toggle_state(&self, command: Command) -> Option<bool> {
+    fn checked(&self, command: Command) -> Option<bool> {
+        let mode = self.settings.mode;
         match command {
-            Command::WordWrap => Some(self.word_wrap),
             Command::StatusBar => Some(self.show_status_bar),
+            Command::ModeStudio => Some(mode == Mode::Studio),
+            Command::ModeNotepad => Some(mode == Mode::Notepad),
+            Command::ModeWriter => Some(mode == Mode::Writer),
+            Command::ModePdf => Some(mode == Mode::Pdf),
+            Command::ParentLock => Some(self.settings.locked()),
+            Command::WordWrap => match self.tab().map(|t| &t.content) {
+                Some(Content::Text(t)) => Some(t.word_wrap),
+                _ => Some(false),
+            },
             _ => None,
         }
     }
 
-    // ---- File actions -------------------------------------------------------
+    // ---- Files -------------------------------------------------------------------------
 
-    fn new_file(&mut self) {
-        if self.confirm_discard() {
-            self.replace_document(Document::new());
+    fn open_dialog(&mut self) {
+        let picked = FileDialog::new()
+            .add_filter(
+                "Text and documents",
+                &[
+                    "txt", "md", "markdown", "docx", "hpdoc", "log", "csv", "json", "ini", "xml",
+                ],
+            )
+            .add_filter("Documents", &["docx", "md", "hpdoc"])
+            .add_filter("All files", &["*"])
+            .pick_files();
+        for path in picked.unwrap_or_default() {
+            self.open_path(&path);
         }
     }
 
-    fn open_file(&mut self) {
-        if !self.confirm_discard() {
+    fn open_path(&mut self, path: &Path) {
+        if let Some(i) = self.tabs.iter().position(|t| t.path() == Some(path)) {
+            self.active = i;
             return;
         }
-        if let Some(path) = text_file_dialog().pick_file() {
-            self.load(&path);
-        }
+        let id = self.next_id + 1;
+        let content = match RichFormat::from_path(path) {
+            Some(format) => match read_limited(path)
+                .and_then(|b| harshpad_rich::decode(&b, format).map_err(io::Error::other))
+            {
+                Ok(doc) => Content::Doc(Box::new(DocTab::new(
+                    doc,
+                    Some(path.to_path_buf()),
+                    Some(format),
+                    id,
+                ))),
+                Err(e) if e.kind() == io::ErrorKind::NotFound => Content::Doc(Box::new(
+                    DocTab::new(RichDoc::new(), Some(path.to_path_buf()), Some(format), id),
+                )),
+                Err(e) => return show_error(&format!("Could not open {}:\n{e}", path.display())),
+            },
+            None => match Document::open(path) {
+                Ok(doc) => Content::Text(Box::new(TextTab::new(doc, id))),
+                Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                    Content::Text(Box::new(TextTab::new(Document::new_at(path), id)))
+                }
+                Err(e) => return show_error(&format!("Could not open {}:\n{e}", path.display())),
+            },
+        };
+        // In a single-app mode every file opens in that app (as a new, unsaved copy,
+        // so the original file is never overwritten in another format).
+        let mode = self.settings.mode;
+        let kind = match content {
+            Content::Text(_) => TabKind::Text,
+            Content::Doc(_) => TabKind::Doc,
+        };
+        let content = if mode.allows(kind) {
+            content
+        } else {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            self.status = Some(format!(
+                "Opened {name} in {} mode as a new copy",
+                mode.short()
+            ));
+            convert(content, mode.home_kind(), id, kind == TabKind::Text)
+        };
+        self.add_tab(content);
     }
 
-    fn load(&mut self, path: &Path) {
-        match Document::open(path) {
-            Ok(doc) => self.replace_document(doc),
-            // Like Notepad, a missing file starts empty and saves to that path.
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                self.replace_document(Document::new_at(path));
-            }
-            Err(e) => show_error(&format!("Could not open {}:\n{e}", path.display())),
-        }
-    }
-
-    /// Returns true if the document was saved.
-    fn save(&mut self) -> bool {
-        if self.session.doc.path.is_none() {
-            return self.save_as();
-        }
-        let result = self.session.doc.save();
+    /// Returns true if the tab was saved.
+    fn save(&mut self, index: usize) -> bool {
+        let Some(tab) = self.tabs.get_mut(index) else {
+            return false;
+        };
+        let result = match &mut tab.content {
+            Content::Text(t) if t.path().is_some() => t.session.doc.save(),
+            Content::Doc(d) => match (d.path.clone(), d.format) {
+                (Some(path), Some(format)) => write_doc(d, path, format),
+                _ => return self.save_as(index),
+            },
+            Content::Text(_) => return self.save_as(index),
+        };
         self.report_save(result)
     }
 
-    /// Returns true if the document was saved.
-    fn save_as(&mut self) -> bool {
-        let suggested = match &self.session.doc.path {
-            Some(_) => self.session.doc.display_name(),
-            None => "Untitled.txt".to_owned(),
-        };
-        let Some(path) = text_file_dialog().set_file_name(suggested).save_file() else {
+    fn save_as(&mut self, index: usize) -> bool {
+        let Some(tab) = self.tabs.get_mut(index) else {
             return false;
         };
-        let result = self.session.doc.save_as(path);
+        let result = match &mut tab.content {
+            Content::Text(t) => {
+                let name = if t.path().is_some() {
+                    t.title()
+                } else {
+                    "Untitled.txt".into()
+                };
+                let Some(path) = FileDialog::new()
+                    .add_filter("Text Documents (*.txt)", &["txt"])
+                    .add_filter("All Files", &["*"])
+                    .set_file_name(name)
+                    .save_file()
+                else {
+                    return false;
+                };
+                t.session.doc.save_as(path)
+            }
+            Content::Doc(d) => {
+                let stem = d.path.as_deref().and_then(Path::file_stem).map_or_else(
+                    || "Untitled".to_owned(),
+                    |s| s.to_string_lossy().into_owned(),
+                );
+                let Some(mut path) = FileDialog::new()
+                    .add_filter("Word document (.docx)", &["docx"])
+                    .add_filter("Markdown (.md)", &["md"])
+                    .add_filter("HarshPad document (.hpdoc)", &["hpdoc"])
+                    .set_file_name(format!("{stem}.docx"))
+                    .save_file()
+                else {
+                    return false;
+                };
+                let format = RichFormat::from_path(&path).unwrap_or_else(|| {
+                    path.set_extension("docx");
+                    RichFormat::Docx
+                });
+                write_doc(d, path, format)
+            }
+        };
         self.report_save(result)
     }
 
     fn report_save(&mut self, result: io::Result<()>) -> bool {
         match result {
             Ok(()) => {
-                self.status_message = Some("Saved".to_owned());
+                let markdown = self.tab().is_some_and(|t| matches!(&t.content, Content::Doc(d) if d.format == Some(RichFormat::Markdown)));
+                self.status = Some(if markdown {
+                    "Saved as Markdown (colours, highlights and sizes aren't kept in Markdown)"
+                        .into()
+                } else {
+                    "Saved".into()
+                });
+                self.write_recovery();
                 true
             }
             Err(e) => {
-                show_error(&format!(
-                    "Could not save {}:\n{e}",
-                    self.session.doc.display_name()
-                ));
+                let name = self.tab().map(Tab::title).unwrap_or_default();
+                show_error(&format!("Could not save {name}:\n{e}"));
                 false
             }
         }
     }
 
-    /// Asks to save unsaved changes. Returns false if the user cancelled.
-    fn confirm_discard(&mut self) -> bool {
-        if !self.session.doc.is_dirty() {
+    /// Asks to save a tab with unsaved changes. Returns false if the user cancelled.
+    fn confirm_discard(&mut self, index: usize) -> bool {
+        let Some(tab) = self.tabs.get(index) else {
+            return true;
+        };
+        if !tab.is_dirty() {
             return true;
         }
+        self.active = index;
         let answer = MessageDialog::new()
             .set_level(MessageLevel::Warning)
             .set_title(APP_NAME)
-            .set_description(format!(
-                "Do you want to save changes to {}?",
-                self.session.doc.display_name()
-            ))
+            .set_description(format!("Do you want to save changes to {}?", tab.title()))
             .set_buttons(MessageButtons::YesNoCancel)
             .show();
         match answer {
-            MessageDialogResult::Yes => self.save(),
+            MessageDialogResult::Yes => self.save(index),
             MessageDialogResult::No => true,
             _ => false,
         }
     }
 
-    fn replace_document(&mut self, doc: Document) {
-        self.session.set_document(doc);
-        self.caret = 0;
-        self.status_message = None;
+    // ---- Sync between kinds -------------------------------------------------------------
+
+    fn convert_to_document(&mut self) {
+        let Some(text) = self.text_tab().map(|t| t.text().to_owned()) else {
+            return;
+        };
+        let doc = markdown::read(&text);
+        let id = self.id();
+        let mut tab = DocTab::new(doc, None, None, id);
+        tab.mark_dirty();
+        self.tabs.push(Tab {
+            id,
+            content: Content::Doc(Box::new(tab)),
+        });
+        self.active = self.tabs.len() - 1;
+        self.status = Some(
+            "Opened as a document: Markdown headings, lists and emphasis became formatting".into(),
+        );
     }
 
-    // ---- Find / replace -----------------------------------------------------
-
-    fn open_find_bar(&mut self, with_replace: bool) {
-        self.find_bar.open = true;
-        self.find_bar.show_replace |= with_replace;
-        self.find_bar.focus_needle = true;
+    fn convert_to_text(&mut self) {
+        let Some(md) = self.doc_tab().map(|d| markdown::write(&d.doc)) else {
+            return;
+        };
+        let id = self.id();
+        let mut doc = Document::new();
+        doc.text = md;
+        doc.mark_changed();
+        self.tabs.push(Tab {
+            id,
+            content: Content::Text(Box::new(TextTab::new(doc, id))),
+        });
+        self.active = self.tabs.len() - 1;
+        self.status = Some("Opened as plain text: formatting is written as Markdown".into());
     }
 
-    fn search(
-        &mut self,
-        ctx: &egui::Context,
-        step: fn(&mut Session, usize) -> Option<Range<usize>>,
-    ) {
-        if self.session.find.needle.is_empty() {
-            self.open_find_bar(false);
+    // ---- Find ----------------------------------------------------------------------------
+
+    fn open_find(&mut self, with_replace: bool) {
+        self.find.open = true;
+        self.find.show_replace |= with_replace;
+        self.find.focus_needle = true;
+    }
+
+    fn search(&mut self, ctx: &egui::Context, step: Step) {
+        if self.find.options.needle.is_empty() {
+            self.open_find(false);
             return;
         }
-        let caret = text_pos::byte_index(&self.session.doc.text, self.caret);
-        match step(&mut self.session, caret) {
-            Some(range) => {
-                self.select_in_editor(ctx, &range);
-                self.status_message = None;
-            }
-            None => {
-                self.status_message = Some(format!("Cannot find \"{}\"", self.session.find.needle));
-            }
+        let options = self.find.options.clone();
+        let found = match self.tab_mut().map(|t| &mut t.content) {
+            Some(Content::Text(t)) => t.search(ctx, &options, step),
+            Some(Content::Doc(d)) => d.search(&options, step),
+            None => false,
+        };
+        if !found {
+            self.status = Some(format!("Cannot find \"{}\"", options.needle));
         }
     }
 
-    fn select_in_editor(&mut self, ctx: &egui::Context, range: &Range<usize>) {
-        let text = &self.session.doc.text;
-        let start = text_pos::char_index(text, range.start);
-        let end = text_pos::char_index(text, range.end);
-
-        let id = egui::Id::new(EDITOR_ID);
-        let mut state = egui::TextEdit::load_state(ctx, id).unwrap_or_default();
-        state.cursor.set_char_range(Some(CCursorRange::two(
-            CCursor::new(start),
-            CCursor::new(end),
-        )));
-        state.store(ctx, id);
-        ctx.memory_mut(|m| m.request_focus(id));
-        self.caret = end;
+    fn search_changed(&mut self) {
+        match self.tab_mut().map(|t| &mut t.content) {
+            Some(Content::Text(t)) => t.search_changed(),
+            Some(Content::Doc(d)) => d.search_changed(),
+            None => {}
+        }
     }
 
-    // ---- View ---------------------------------------------------------------
+    // ---- Recovery -------------------------------------------------------------------------
 
-    fn zoom(&mut self, factor: f32) {
-        self.font_size = (self.font_size * factor).clamp(MIN_FONT_SIZE, MAX_FONT_SIZE);
+    fn dirty_copies(&self) -> Vec<(u64, Saved)> {
+        self.tabs
+            .iter()
+            .filter(|t| t.is_dirty())
+            .filter_map(|t| t.recovery_copy().map(|s| (t.id, s)))
+            .collect()
     }
 
-    fn zoom_percent(&self) -> u32 {
-        (self.font_size / DEFAULT_FONT_SIZE * 100.0).round() as u32
+    fn write_recovery(&self) {
+        self.recovery.write(self.dirty_copies());
     }
 
-    // ---- Per-frame input ----------------------------------------------------
+    // ---- Per-frame input -----------------------------------------------------------------
 
     fn handle_close_request(&mut self, ctx: &egui::Context) {
-        if ctx.input(|i| i.viewport().close_requested()) && !self.allow_close {
-            if self.confirm_discard() {
-                self.allow_close = true;
-            } else {
+        if !ctx.input(|i| i.viewport().close_requested()) || self.allow_close {
+            return;
+        }
+        for i in 0..self.tabs.len() {
+            if !self.confirm_discard(i) {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                return;
             }
         }
+        self.allow_close = true;
+        self.recovery.clear();
     }
 
     fn handle_dropped_files(&mut self, ctx: &egui::Context) {
-        let dropped = ctx.input(|i| i.raw.dropped_files.first().and_then(|f| f.path.clone()));
-        if let Some(path) = dropped
-            && self.confirm_discard()
-        {
-            self.load(&path);
+        let dropped: Vec<PathBuf> = ctx.input(|i| {
+            i.raw
+                .dropped_files
+                .iter()
+                .filter_map(|f| f.path.clone())
+                .collect()
+        });
+        for path in dropped {
+            self.open_path(&path);
         }
     }
 
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
+        let kind = self.kind();
+        // Typing in the find box, palette or link dialog keeps undo, formatting
+        // and editing keys for that box.
+        let editing_elsewhere = ctx.wants_keyboard_input() && self.dialog.is_some()
+            || ctx.memory(|m| m.focused()).is_some_and(|f| {
+                f == egui::Id::new("find-needle") || f == egui::Id::new("find-replacement")
+            });
         let mut bound: Vec<_> = CATALOG
             .iter()
-            .filter_map(|s| s.shortcut.map(|k| (s.command, k)))
+            .filter(|s| s.works_in(kind) && self.offered(s))
+            .filter_map(|s| s.shortcut.map(|k| (s.command, s.menu, k)))
             .collect();
-        bound.sort_by_key(|(_, k)| Reverse(k.modifier_count()));
-        for (command, shortcut) in bound {
+        bound.sort_by_key(|(_, _, k)| Reverse(k.modifier_count()));
+        for (command, menu, shortcut) in bound {
+            let global = matches!(menu, Some(Menu::File | Menu::View))
+                || matches!(
+                    command,
+                    Command::FindNext
+                        | Command::FindPrevious
+                        | Command::Find
+                        | Command::Replace
+                        | Command::CommandPalette
+                );
+            if editing_elsewhere && !global {
+                continue;
+            }
             if consume(ctx, shortcut) {
                 self.dispatch(command, ctx);
             }
@@ -304,31 +812,41 @@ impl NotepadApp {
     }
 
     fn update_title(&mut self, ctx: &egui::Context) {
-        let dirty = if self.session.doc.is_dirty() { "*" } else { "" };
-        let title = format!("{dirty}{} - {APP_NAME}", self.session.doc.display_name());
+        let Some(tab) = self.tab() else { return };
+        let dirty = if tab.is_dirty() { "*" } else { "" };
+        let title = format!("{dirty}{} - {APP_NAME}", tab.title());
         if title != self.window_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.window_title = title;
         }
     }
 
-    // ---- Panels -------------------------------------------------------------
+    // ---- Panels ---------------------------------------------------------------------------
 
     fn menu_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
+        let kind = self.kind();
         let mut clicked = None;
         egui::menu::bar(ui, |ui| {
             for menu in Menu::ALL {
                 ui.menu_button(menu.label(), |ui| {
-                    for spec in commands::in_menu(menu) {
+                    for spec in commands::in_menu(menu).filter(|s| self.offered(s)) {
                         if spec.separator_before {
                             ui.separator();
                         }
                         let shortcut = spec.shortcut.map(Shortcut::label).unwrap_or_default();
-                        let mut button = egui::Button::new(spec.label).shortcut_text(shortcut);
-                        if let Some(on) = self.toggle_state(spec.command) {
+                        // In a single-app mode "New text file" is just "New".
+                        let label = if spec.command == Command::NewText
+                            && self.settings.mode != Mode::Studio
+                        {
+                            "New"
+                        } else {
+                            spec.label
+                        };
+                        let mut button = egui::Button::new(label).shortcut_text(shortcut);
+                        if let Some(on) = self.checked(spec.command) {
                             button = button.selected(on);
                         }
-                        if ui.add(button).clicked() {
+                        if ui.add_enabled(spec.works_in(kind), button).clicked() {
                             clicked = Some(spec.command);
                             ui.close_menu();
                         }
@@ -339,19 +857,191 @@ impl NotepadApp {
         clicked
     }
 
+    fn tab_strip(&mut self, ui: &mut egui::Ui) -> Option<Command> {
+        let mut clicked = None;
+        let mut close = None;
+        egui::ScrollArea::horizontal()
+            .id_salt("tabs")
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    for (i, tab) in self.tabs.iter().enumerate() {
+                        let icon = if tab.kind() == TabKind::Doc {
+                            "📝"
+                        } else {
+                            "📄"
+                        };
+                        let dirty = if tab.is_dirty() { " ●" } else { "" };
+                        let label = format!("{icon} {}{dirty}", tab.title());
+                        let response = ui.selectable_label(i == self.active, label).on_hover_text(
+                            tab.path().map_or_else(
+                                || "Not saved yet".to_owned(),
+                                |p| p.display().to_string(),
+                            ),
+                        );
+                        if response.clicked() {
+                            self.active = i;
+                        }
+                        if response.middle_clicked() {
+                            close = Some(i);
+                        }
+                        if ui
+                            .small_button("×")
+                            .on_hover_text("Close tab (Ctrl+W)")
+                            .clicked()
+                        {
+                            close = Some(i);
+                        }
+                        ui.add_space(6.0);
+                    }
+                    let mode = self.settings.mode;
+                    if mode == Mode::Studio {
+                        if ui
+                            .button("+ Text")
+                            .on_hover_text("New text file (Ctrl+N)")
+                            .clicked()
+                        {
+                            clicked = Some(Command::NewText);
+                        }
+                        if ui
+                            .button("+ Document")
+                            .on_hover_text("New document (Ctrl+Shift+N)")
+                            .clicked()
+                        {
+                            clicked = Some(Command::NewDocument);
+                        }
+                    } else if ui.button("+ New").on_hover_text("New (Ctrl+N)").clicked() {
+                        clicked = Some(Command::NewText);
+                    }
+                    ui.add_space(12.0);
+                    // The mode switch: all together, or one app at a time.
+                    let lock = if self.settings.locked() { " 🔒" } else { "" };
+                    ui.menu_button(format!("◧ {}{lock}", mode.short()), |ui| {
+                        for (m, c) in [
+                            (Mode::Studio, Command::ModeStudio),
+                            (Mode::Notepad, Command::ModeNotepad),
+                            (Mode::Writer, Command::ModeWriter),
+                            (Mode::Pdf, Command::ModePdf),
+                        ] {
+                            let label = if m.is_available() {
+                                m.label().to_owned()
+                            } else {
+                                format!("{} (coming soon)", m.label())
+                            };
+                            if ui
+                                .add_enabled(
+                                    m.is_available(),
+                                    egui::Button::new(label).selected(m == mode),
+                                )
+                                .clicked()
+                            {
+                                clicked = Some(c);
+                                ui.close_menu();
+                            }
+                        }
+                        ui.separator();
+                        let lock_label = if self.settings.locked() {
+                            "🔒 Remove parent lock…"
+                        } else {
+                            "🔓 Parent lock…"
+                        };
+                        if ui.button(lock_label).clicked() {
+                            clicked = Some(Command::ParentLock);
+                            ui.close_menu();
+                        }
+                    })
+                    .response
+                    .on_hover_text(
+                        "Use all apps together, or just one (e.g. Writer only for a child)",
+                    );
+                });
+            });
+        if let Some(i) = close {
+            self.close_tab(i);
+        }
+        clicked
+    }
+
+    /// The same layout for every kind: undo · find · zoom · kind-specific tools.
+    fn toolbar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
+        let mut clicked = None;
+        let tip = |c: Command| {
+            commands::spec_of(c).map_or(String::new(), |s| match s.shortcut {
+                Some(k) => format!("{} ({})", s.label, k.label()),
+                None => s.label.to_owned(),
+            })
+        };
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            for (c, label) in [(Command::Undo, "↶"), (Command::Redo, "↷")] {
+                if ui.button(label).on_hover_text(tip(c)).clicked() {
+                    clicked = Some(c);
+                }
+            }
+            ui.separator();
+            if ui
+                .button("🔍 Find")
+                .on_hover_text(tip(Command::Find))
+                .clicked()
+            {
+                clicked = Some(Command::Find);
+            }
+            ui.separator();
+            if ui
+                .button("−")
+                .on_hover_text(tip(Command::ZoomOut))
+                .clicked()
+            {
+                clicked = Some(Command::ZoomOut);
+            }
+            if ui
+                .button(format!("{:.0}%", self.zoom * 100.0))
+                .on_hover_text(tip(Command::ZoomReset))
+                .clicked()
+            {
+                clicked = Some(Command::ZoomReset);
+            }
+            if ui.button("+").on_hover_text(tip(Command::ZoomIn)).clicked() {
+                clicked = Some(Command::ZoomIn);
+            }
+            ui.separator();
+            let studio = self.settings.mode == Mode::Studio;
+            match self.tab_mut().map(|t| &mut t.content) {
+                Some(Content::Text(t)) => {
+                    if ui.selectable_label(t.word_wrap, "↩ Word wrap").clicked() {
+                        clicked = Some(Command::WordWrap);
+                    }
+                    if studio
+                        && ui
+                            .button("📝 Open as document")
+                            .on_hover_text(
+                                "Markdown headings, lists and emphasis become formatting",
+                            )
+                            .clicked()
+                    {
+                        clicked = Some(Command::ConvertToDocument);
+                    }
+                }
+                Some(Content::Doc(d)) => clicked = clicked.or(doc_tools(ui, d, &tip, studio)),
+                None => {}
+            }
+        });
+        clicked
+    }
+
     fn find_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
         let mut command = None;
+        let mut changed = false;
         ui.horizontal(|ui| {
             ui.label("Find:");
             let needle = ui.add(
-                egui::TextEdit::singleline(&mut self.session.find.needle).desired_width(220.0),
+                egui::TextEdit::singleline(&mut self.find.options.needle)
+                    .id(egui::Id::new("find-needle"))
+                    .desired_width(220.0),
             );
-            if std::mem::take(&mut self.find_bar.focus_needle) {
+            if std::mem::take(&mut self.find.focus_needle) {
                 needle.request_focus();
             }
-            if needle.changed() {
-                self.session.search_changed();
-            }
+            changed |= needle.changed();
             if needle.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 command = Some(Command::FindNext);
             }
@@ -361,24 +1051,22 @@ impl NotepadApp {
             if ui.button("Find Previous").clicked() {
                 command = Some(Command::FindPrevious);
             }
-            if ui
-                .checkbox(&mut self.session.find.match_case, "Match case")
-                .changed()
-            {
-                self.session.search_changed();
-            }
-            ui.toggle_value(&mut self.find_bar.show_replace, "Replace…");
+            changed |= ui
+                .checkbox(&mut self.find.options.match_case, "Match case")
+                .changed();
+            ui.toggle_value(&mut self.find.show_replace, "Replace…");
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui.button("✕").on_hover_text("Close (Esc)").clicked() {
-                    self.find_bar.open = false;
+                    self.find.open = false;
                 }
             });
         });
-        if self.find_bar.show_replace {
+        if self.find.show_replace {
             ui.horizontal(|ui| {
                 ui.label("Replace:");
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.session.find.replacement)
+                    egui::TextEdit::singleline(&mut self.find.options.replacement)
+                        .id(egui::Id::new("find-replacement"))
                         .desired_width(200.0),
                 );
                 if ui.button("Replace").clicked() {
@@ -390,100 +1078,491 @@ impl NotepadApp {
             });
         }
         if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-            self.find_bar.open = false;
+            self.find.open = false;
+        }
+        if changed {
+            self.search_changed();
         }
         command
     }
 
     fn status_bar(&self, ui: &mut egui::Ui) {
+        let Some(tab) = self.tab() else { return };
+        let (line, column, words, format) = match &tab.content {
+            Content::Text(t) => {
+                let (l, c) = t.line_and_column();
+                (l, c, t.word_count(), t.format_label())
+            }
+            Content::Doc(d) => {
+                let (l, c) = d.line_and_column();
+                (l, c, d.word_count(), d.format_label())
+            }
+        };
         ui.horizontal(|ui| {
-            if let Some(message) = &self.status_message {
-                ui.label(message);
+            if let Some(message) = &self.status {
+                ui.label(RichText::new(message).color(ACCENT));
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let doc = &self.session.doc;
-                ui.label(doc.encoding.label());
+                ui.label(format);
                 ui.separator();
-                ui.label(doc.line_ending.label());
+                ui.label(format!("{:.0}%", self.zoom * 100.0));
                 ui.separator();
-                ui.label(format!("{}%", self.zoom_percent()));
+                ui.label(format!("{words} words"));
                 ui.separator();
-                let (line, column) = text_pos::line_and_column(&doc.text, self.caret);
-                ui.label(format!("Ln {line}, Col {column}"));
+                let place = if tab.kind() == TabKind::Doc {
+                    "Para"
+                } else {
+                    "Ln"
+                };
+                ui.label(format!("{place} {line}, Col {column}"));
             });
         });
     }
 
-    fn editor(&mut self, ui: &mut egui::Ui) {
-        let font_id = egui::FontId::monospace(self.font_size);
-        let word_wrap = self.word_wrap;
-        let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
-            let width = if word_wrap { wrap_width } else { f32::INFINITY };
-            let job = egui::text::LayoutJob::simple(
-                text.to_owned(),
-                font_id.clone(),
-                ui.visuals().text_color(),
-                width,
-            );
-            ui.fonts(|f| f.layout_job(job))
-        };
-
-        // Measure before entering the scroll area, whose inner width can be unbounded.
-        let visible = ui.available_size();
-        let scroll = if word_wrap {
-            egui::ScrollArea::vertical()
-        } else {
-            egui::ScrollArea::both()
-        };
-        scroll.auto_shrink([false, false]).show(ui, |ui| {
-            let output = egui::TextEdit::multiline(&mut self.session.doc.text)
-                .id(egui::Id::new(EDITOR_ID))
-                .frame(false)
-                .lock_focus(true)
-                .desired_width(visible.x)
-                .min_size(visible)
-                .layouter(&mut layouter)
-                .show(ui);
-
-            if output.response.changed() {
-                self.session.text_edited();
+    fn dialogs(&mut self, ctx: &egui::Context) -> Option<Command> {
+        let kind = self.kind();
+        let mode = self.settings.mode;
+        let pin_hash = self.settings.pin;
+        let mut run = None;
+        let mut close = false;
+        let mut link: Option<Option<String>> = None;
+        let mut unlocked: Option<Option<Mode>> = None;
+        let mut new_pin: Option<u64> = None;
+        match self.dialog.as_mut() {
+            None => return None,
+            Some(Dialog::Unlock {
+                then,
+                pin,
+                wrong,
+                focus,
+            }) => {
+                egui::Window::new("Parent lock")
+                    .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label(match then {
+                            Some(m) => format!("Enter the parent PIN to switch to {}.", m.label()),
+                            None => "Enter the parent PIN to remove the lock.".to_owned(),
+                        });
+                        let edit = ui.add(
+                            egui::TextEdit::singleline(pin)
+                                .password(true)
+                                .hint_text("PIN")
+                                .desired_width(160.0),
+                        );
+                        if std::mem::take(focus) {
+                            edit.request_focus();
+                        }
+                        if *wrong {
+                            ui.colored_label(
+                                Color32::from_rgb(220, 60, 60),
+                                "That PIN isn't right.",
+                            );
+                        }
+                        ui.horizontal(|ui| {
+                            if ui.button("OK").clicked()
+                                || ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            {
+                                if Some(modes::hash_pin(pin)) == pin_hash {
+                                    unlocked = Some(*then);
+                                } else {
+                                    *wrong = true;
+                                    pin.clear();
+                                    *focus = true;
+                                }
+                            }
+                            if ui.button("Cancel").clicked()
+                                || ui.input(|i| i.key_pressed(egui::Key::Escape))
+                            {
+                                close = true;
+                            }
+                        });
+                    });
             }
-            if let Some(range) = output.cursor_range {
-                let caret = range.primary.ccursor.index;
-                if caret != self.caret {
-                    self.caret = caret;
-                    let byte = text_pos::byte_index(&self.session.doc.text, caret);
-                    self.session.caret_moved(byte);
+            Some(Dialog::SetLock {
+                pin,
+                confirm,
+                error,
+                focus,
+            }) => {
+                egui::Window::new("Parent lock")
+                    .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label(format!(
+                            "Lock HarshPad in its current mode ({}).\nChanging the mode will then need this PIN.",
+                            mode.label()
+                        ));
+                        ui.small("The lock keeps the app in one mode; it isn't a password for your files.");
+                        egui::Grid::new("pin-grid").num_columns(2).show(ui, |ui| {
+                            ui.label("New PIN (4–8 digits)");
+                            let edit = ui.add(egui::TextEdit::singleline(pin).password(true).desired_width(140.0));
+                            if std::mem::take(focus) {
+                                edit.request_focus();
+                            }
+                            ui.end_row();
+                            ui.label("Type it again");
+                            ui.add(egui::TextEdit::singleline(confirm).password(true).desired_width(140.0));
+                            ui.end_row();
+                        });
+                        if let Some(e) = error {
+                            ui.colored_label(Color32::from_rgb(220, 60, 60), *e);
+                        }
+                        ui.horizontal(|ui| {
+                            if ui.button("Lock").clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                if !modes::valid_pin(pin) {
+                                    *error = Some("Use 4 to 8 digits.");
+                                } else if pin.trim() != confirm.trim() {
+                                    *error = Some("The two PINs don't match.");
+                                } else {
+                                    new_pin = Some(modes::hash_pin(pin));
+                                }
+                            }
+                            if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                close = true;
+                            }
+                        });
+                    });
+            }
+            Some(Dialog::Palette { query, focus }) => {
+                egui::Window::new("Command palette")
+                    .anchor(Align2::CENTER_TOP, vec2(0.0, 80.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        let edit = ui.add(
+                            egui::TextEdit::singleline(query)
+                                .hint_text("Type a command…")
+                                .desired_width(380.0),
+                        );
+                        if std::mem::take(focus) {
+                            edit.request_focus();
+                        }
+                        let found: Vec<_> = commands::search(query)
+                            .into_iter()
+                            .filter(|s| s.works_in(kind) && mode.allows_command(s))
+                            .collect();
+                        if ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            && let Some(first) = found.first()
+                        {
+                            run = Some(first.command);
+                        }
+                        egui::ScrollArea::vertical()
+                            .max_height(320.0)
+                            .show(ui, |ui| {
+                                for spec in found.iter().take(40) {
+                                    let key =
+                                        spec.shortcut.map(Shortcut::label).unwrap_or_default();
+                                    if ui
+                                        .add(
+                                            egui::Button::new(spec.label)
+                                                .shortcut_text(key)
+                                                .min_size(vec2(380.0, 0.0)),
+                                        )
+                                        .clicked()
+                                    {
+                                        run = Some(spec.command);
+                                    }
+                                }
+                            });
+                        close |= ui.input(|i| i.key_pressed(egui::Key::Escape));
+                    });
+                close |= run.is_some();
+            }
+            Some(Dialog::Link { url, focus }) => {
+                egui::Window::new("Link")
+                    .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label("Address (web page or e-mail):");
+                        let edit = ui.add(
+                            egui::TextEdit::singleline(url)
+                                .hint_text("https://…")
+                                .desired_width(360.0),
+                        );
+                        if std::mem::take(focus) {
+                            edit.request_focus();
+                        }
+                        ui.horizontal(|ui| {
+                            if ui.button("Apply").clicked()
+                                || ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            {
+                                link = Some(Some(url.trim().to_owned()));
+                            }
+                            if ui.button("Remove link").clicked() {
+                                link = Some(None);
+                            }
+                            if ui.button("Cancel").clicked()
+                                || ui.input(|i| i.key_pressed(egui::Key::Escape))
+                            {
+                                close = true;
+                            }
+                        });
+                    });
+            }
+        }
+        if let Some(target) = unlocked {
+            close = true;
+            match target {
+                Some(m) => self.set_mode(m),
+                None => {
+                    self.settings.pin = None;
+                    self.settings.save();
+                    self.status = Some("Parent lock removed".into());
                 }
             }
-        });
+        }
+        if let Some(hash) = new_pin {
+            self.settings.pin = Some(hash);
+            self.settings.save();
+            self.status = Some(format!("Locked in {} mode", mode.short()));
+            close = true;
+        }
+        if let Some(url) = link {
+            if let Some(d) = self.doc_tab() {
+                d.set_link(url.filter(|u| !u.is_empty()));
+            }
+            close = true;
+        }
+        if close {
+            self.dialog = None;
+            if let Some(t) = self.tab() {
+                t.focus(ctx);
+            }
+        }
+        run
     }
 }
 
-impl eframe::App for NotepadApp {
+/// Document tools: paragraph style, character toggles, colours, alignment, lists, link.
+fn doc_tools(
+    ui: &mut egui::Ui,
+    d: &mut DocTab,
+    tip: &dyn Fn(Command) -> String,
+    studio: bool,
+) -> Option<Command> {
+    let mut clicked = None;
+    let para = d.paragraph();
+    let mut style = para.style;
+    egui::ComboBox::from_id_salt("para-style")
+        .width(120.0)
+        .selected_text(para.style.label())
+        .show_ui(ui, |ui| {
+            for s in ParaStyle::ALL {
+                ui.selectable_value(&mut style, s, s.label());
+            }
+        });
+    if style != para.style {
+        clicked = Some(match style {
+            ParaStyle::Normal => Command::StyleNormal,
+            ParaStyle::Title => Command::StyleTitle,
+            ParaStyle::Heading1 => Command::StyleHeading1,
+            ParaStyle::Heading2 => Command::StyleHeading2,
+            ParaStyle::Heading3 => Command::StyleHeading3,
+            ParaStyle::Quote => Command::StyleQuote,
+            ParaStyle::Code => Command::StyleCode,
+            ParaStyle::Bullet => Command::BulletList,
+            ParaStyle::Numbered => Command::NumberedList,
+        });
+    }
+    for (c, flag, text) in [
+        (Command::Bold, Flag::Bold, RichText::new("B").strong()),
+        (Command::Italic, Flag::Italic, RichText::new("I").italics()),
+        (
+            Command::Underline,
+            Flag::Underline,
+            RichText::new("U").underline(),
+        ),
+        (
+            Command::Strike,
+            Flag::Strike,
+            RichText::new("S").strikethrough(),
+        ),
+        (
+            Command::InlineCode,
+            Flag::Code,
+            RichText::new("</>").monospace(),
+        ),
+    ] {
+        if ui
+            .selectable_label(d.has(flag), text)
+            .on_hover_text(tip(c))
+            .clicked()
+        {
+            clicked = Some(c);
+        }
+    }
+    ui.separator();
+    let cs = d.char_style();
+    let mut color = cs.color.map_or([32, 32, 32], |c| [c.0, c.1, c.2]);
+    ui.label("A");
+    if egui::color_picker::color_edit_button_srgb(ui, &mut color)
+        .on_hover_text("Text colour")
+        .changed()
+    {
+        d.set_color(Some(Rgb(color[0], color[1], color[2])));
+    }
+    let mut mark = cs.highlight.map_or([255, 241, 118], |c| [c.0, c.1, c.2]);
+    ui.label("🖍");
+    if egui::color_picker::color_edit_button_srgb(ui, &mut mark)
+        .on_hover_text("Highlight colour")
+        .changed()
+    {
+        d.set_highlight(Some(Rgb(mark[0], mark[1], mark[2])));
+    }
+    if cs.highlight.is_some()
+        && ui
+            .small_button("✕")
+            .on_hover_text("Remove highlight")
+            .clicked()
+    {
+        d.set_highlight(None);
+    }
+    ui.separator();
+    for (c, a, label) in [
+        (Command::AlignLeft, TextAlign::Left, "⫷"),
+        (Command::AlignCenter, TextAlign::Center, "≡"),
+        (Command::AlignRight, TextAlign::Right, "⫸"),
+        (Command::AlignJustify, TextAlign::Justify, "☰"),
+    ] {
+        if ui
+            .selectable_label(para.align == a, label)
+            .on_hover_text(tip(c))
+            .clicked()
+        {
+            clicked = Some(c);
+        }
+    }
+    ui.separator();
+    if ui
+        .selectable_label(para.style == ParaStyle::Bullet, "• List")
+        .on_hover_text(tip(Command::BulletList))
+        .clicked()
+    {
+        clicked = Some(Command::BulletList);
+    }
+    if ui
+        .selectable_label(para.style == ParaStyle::Numbered, "1. List")
+        .on_hover_text(tip(Command::NumberedList))
+        .clicked()
+    {
+        clicked = Some(Command::NumberedList);
+    }
+    if ui
+        .button("🔗 Link")
+        .on_hover_text(tip(Command::InsertLink))
+        .clicked()
+    {
+        clicked = Some(Command::InsertLink);
+    }
+    if studio
+        && ui
+            .button("📄 Open as plain text")
+            .on_hover_text("Formatting is written as Markdown")
+            .clicked()
+    {
+        clicked = Some(Command::ConvertToText);
+    }
+    clicked
+}
+
+/// Turns a tab into another kind as a new, unsaved copy (no path, so nothing on disk
+/// is overwritten in another format). Text becomes plain paragraphs when `plain`,
+/// otherwise it is read as Markdown; documents become Markdown text.
+fn convert(content: Content, kind: TabKind, id: u64, plain: bool) -> Content {
+    match (content, kind) {
+        (Content::Text(t), TabKind::Doc) => {
+            let doc = if plain {
+                RichDoc::from_plain(t.text())
+            } else {
+                markdown::read(t.text())
+            };
+            let mut d = DocTab::new(doc, None, None, id);
+            d.name_hint = Some(format!("{} (copy)", t.title()));
+            if t.is_dirty() {
+                d.mark_dirty();
+            }
+            Content::Doc(Box::new(d))
+        }
+        (Content::Doc(d), TabKind::Text) => {
+            let mut doc = Document::new();
+            doc.text = markdown::write(&d.doc);
+            if d.is_dirty() {
+                doc.mark_changed();
+            }
+            let mut t = TextTab::new(doc, id);
+            t.name_hint = Some(format!("{} (copy)", d.title()));
+            Content::Text(Box::new(t))
+        }
+        (same, _) => same,
+    }
+}
+
+fn write_doc(d: &mut DocTab, path: PathBuf, format: RichFormat) -> io::Result<()> {
+    let bytes = harshpad_rich::encode(&d.doc, format).map_err(io::Error::other)?;
+    write_atomically(&path, &bytes)?;
+    d.set_saved(path, format);
+    Ok(())
+}
+
+fn read_limited(path: &Path) -> io::Result<Vec<u8>> {
+    if std::fs::metadata(path)?.len() > MAX_OPEN_BYTES {
+        return Err(io::Error::other("the file is larger than 64 MB"));
+    }
+    std::fs::read(path)
+}
+
+impl eframe::App for StudioApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_close_request(ctx);
         self.handle_dropped_files(ctx);
         self.handle_shortcuts(ctx);
         self.update_title(ctx);
+        let copies = || self.dirty_copies();
+        let tabs = copies();
+        self.recovery.tick(|| tabs);
 
         let mut clicked = None;
         egui::TopBottomPanel::top("menu").show(ctx, |ui| clicked = self.menu_bar(ui));
-        if self.find_bar.open {
-            egui::TopBottomPanel::top("find").show(ctx, |ui| {
-                clicked = clicked.or(self.find_bar(ui));
-            });
+        egui::TopBottomPanel::top("tabs").show(ctx, |ui| clicked = clicked.or(self.tab_strip(ui)));
+        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            ui.add_space(2.0);
+            clicked = clicked.or(self.toolbar(ui));
+            ui.add_space(2.0);
+        });
+        if self.find.open {
+            egui::TopBottomPanel::top("find")
+                .show(ctx, |ui| clicked = clicked.or(self.find_bar(ui)));
         }
         if self.show_status_bar {
             egui::TopBottomPanel::bottom("status").show(ctx, |ui| self.status_bar(ui));
         }
-        let editor_frame =
-            egui::Frame::central_panel(&ctx.style()).fill(ctx.style().visuals.extreme_bg_color);
+        let kind = self.kind();
+        let backdrop = if kind == TabKind::Doc {
+            if ctx.style().visuals.dark_mode {
+                Color32::from_gray(48)
+            } else {
+                Color32::from_gray(222)
+            }
+        } else {
+            ctx.style().visuals.extreme_bg_color
+        };
+        let zoom = self.zoom;
         egui::CentralPanel::default()
-            .frame(editor_frame)
-            .show(ctx, |ui| self.editor(ui));
-
-        // Run after drawing so dialogs never open from inside a menu.
+            .frame(egui::Frame::central_panel(&ctx.style()).fill(backdrop))
+            .show(ctx, |ui| {
+                match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
+                    Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
+                    Some(Content::Doc(d)) => d.ui(ui, zoom),
+                    None => {}
+                }
+            });
+        if let Some(c) = self.dialogs(ctx) {
+            clicked = clicked.or(Some(c));
+        }
         if let Some(command) = clicked {
             self.dispatch(command, ctx);
         }
@@ -499,155 +1578,48 @@ fn consume(ctx: &egui::Context, shortcut: Shortcut) -> bool {
     if shortcut.shift {
         modifiers |= Modifiers::SHIFT;
     }
+    if shortcut.alt {
+        modifiers |= Modifiers::ALT;
+    }
     egui_keys(shortcut.key)
         .iter()
         .any(|key| ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(modifiers, *key))))
 }
 
 fn egui_keys(key: Key) -> &'static [egui::Key] {
+    use egui::Key as E;
     match key {
-        Key::N => &[egui::Key::N],
-        Key::O => &[egui::Key::O],
-        Key::S => &[egui::Key::S],
-        Key::F => &[egui::Key::F],
-        Key::H => &[egui::Key::H],
-        Key::F3 => &[egui::Key::F3],
+        Key::B => &[E::B],
+        Key::E => &[E::E],
+        Key::F => &[E::F],
+        Key::H => &[E::H],
+        Key::I => &[E::I],
+        Key::J => &[E::J],
+        Key::K => &[E::K],
+        Key::L => &[E::L],
+        Key::N => &[E::N],
+        Key::O => &[E::O],
+        Key::P => &[E::P],
+        Key::R => &[E::R],
+        Key::S => &[E::S],
+        Key::U => &[E::U],
+        Key::W => &[E::W],
+        Key::X => &[E::X],
+        Key::Y => &[E::Y],
+        Key::Z => &[E::Z],
+        Key::Num0 => &[E::Num0],
+        Key::Num1 => &[E::Num1],
+        Key::Num2 => &[E::Num2],
+        Key::Num3 => &[E::Num3],
+        Key::F3 => &[E::F3],
         // "=" is the unshifted "+" key on most layouts.
-        Key::Plus => &[egui::Key::Plus, egui::Key::Equals],
-        Key::Minus => &[egui::Key::Minus],
-        Key::Num0 => &[egui::Key::Num0],
+        Key::Plus => &[E::Plus, E::Equals],
+        Key::Minus => &[E::Minus],
+        Key::OpenBracket => &[E::OpenBracket],
+        Key::CloseBracket => &[E::CloseBracket],
+        Key::Space => &[E::Space],
+        Key::Tab => &[E::Tab],
     }
-}
-
-/// Uses fonts the computer already has (on Windows, macOS and Linux) instead of
-/// bundling font files: a monospace editor font, an interface font, and symbol and
-/// emoji fonts for characters like ✓. Missing fonts are skipped, and egui's
-/// built-in fonts remain as the last fallback.
-fn install_system_fonts(ctx: &egui::Context) {
-    let mut fonts = egui::FontDefinitions::default();
-    let mut add = |name: &str, candidates: &[&str], families: &[egui::FontFamily], first: bool| {
-        let Some(bytes) = find_font(candidates).and_then(|p| std::fs::read(p).ok()) else {
-            return;
-        };
-        fonts.font_data.insert(
-            name.to_owned(),
-            std::sync::Arc::new(egui::FontData::from_owned(bytes)),
-        );
-        for family in families {
-            let list = fonts.families.entry(family.clone()).or_default();
-            if first {
-                list.insert(0, name.to_owned());
-            } else {
-                list.push(name.to_owned());
-            }
-        }
-    };
-    use egui::FontFamily::{Monospace, Proportional};
-    add(
-        "editor",
-        &[
-            "consola.ttf",
-            "Menlo.ttc",
-            "SFNSMono.ttf",
-            "DejaVuSansMono.ttf",
-            "LiberationMono-Regular.ttf",
-            "NotoSansMono-Regular.ttf",
-        ],
-        &[Monospace],
-        true,
-    );
-    add(
-        "interface",
-        &[
-            "segoeui.ttf",
-            "SFNS.ttf",
-            "Helvetica.ttc",
-            "DejaVuSans.ttf",
-            "NotoSans-Regular.ttf",
-            "LiberationSans-Regular.ttf",
-        ],
-        &[Proportional],
-        true,
-    );
-    add(
-        "symbols",
-        &[
-            "seguisym.ttf",
-            "Apple Symbols.ttf",
-            "DejaVuSans.ttf",
-            "NotoSansSymbols2-Regular.ttf",
-        ],
-        &[Monospace, Proportional],
-        false,
-    );
-    add(
-        "emoji",
-        &["seguiemj.ttf", "NotoEmoji-Regular.ttf"],
-        &[Monospace, Proportional],
-        false,
-    );
-    ctx.set_fonts(fonts);
-}
-
-/// Font folders on Windows, macOS and Linux.
-fn font_dirs() -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-    if let Some(windir) = std::env::var_os("WINDIR") {
-        dirs.push(PathBuf::from(windir).join("Fonts"));
-    }
-    for d in [
-        "/System/Library/Fonts",
-        "/System/Library/Fonts/Supplemental",
-        "/Library/Fonts",
-        "/usr/share/fonts",
-        "/usr/local/share/fonts",
-    ] {
-        dirs.push(PathBuf::from(d));
-    }
-    if let Some(home) = std::env::var_os("HOME") {
-        let home = PathBuf::from(home);
-        dirs.push(home.join("Library").join("Fonts"));
-        dirs.push(home.join(".local").join("share").join("fonts"));
-        dirs.push(home.join(".fonts"));
-    }
-    dirs
-}
-
-/// The first candidate file found anywhere under the font folders (Linux keeps
-/// fonts in sub-folders, so the search goes a few levels deep, with a budget).
-fn find_font(candidates: &[&str]) -> Option<PathBuf> {
-    fn search(dir: &Path, name: &str, depth: u32, budget: &mut u32) -> Option<PathBuf> {
-        let direct = dir.join(name);
-        if direct.is_file() {
-            return Some(direct);
-        }
-        if depth == 0 {
-            return None;
-        }
-        for entry in std::fs::read_dir(dir).ok()?.flatten() {
-            *budget += 1;
-            if *budget > 20_000 {
-                return None;
-            }
-            let path = entry.path();
-            if path.is_dir()
-                && let Some(found) = search(&path, name, depth - 1, budget)
-            {
-                return Some(found);
-            }
-        }
-        None
-    }
-    let dirs = font_dirs();
-    candidates
-        .iter()
-        .find_map(|name| dirs.iter().find_map(|d| search(d, name, 4, &mut 0)))
-}
-
-fn text_file_dialog() -> FileDialog {
-    FileDialog::new()
-        .add_filter("Text Documents (*.txt)", &["txt"])
-        .add_filter("All Files", &["*"])
 }
 
 fn show_error(message: &str) {
@@ -662,8 +1634,9 @@ fn show_about() {
     MessageDialog::new()
         .set_title(APP_NAME)
         .set_description(format!(
-            "{APP_NAME} {}\n\nA clean-room plain-text editor written in Rust.\n\
-             Undo: Ctrl+Z   Redo: Ctrl+Y   Select all: Ctrl+A",
+            "{APP_NAME} {}\n\nPlain text and rich documents in one fast app, written in Rust.\n\
+             Tabs · .docx · Markdown · Find & Replace · crash recovery\n\n\
+             Ctrl+Shift+P opens the command palette.",
             env!("CARGO_PKG_VERSION")
         ))
         .show();

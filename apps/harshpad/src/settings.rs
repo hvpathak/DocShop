@@ -1,0 +1,41 @@
+//! Settings that survive restarts: the app mode and the parent lock.
+
+use harshpad_core::modes::Mode;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Settings {
+    #[serde(default)]
+    pub mode: Mode,
+    /// Hash of the parent-lock PIN; `None` when the mode isn't locked.
+    #[serde(default)]
+    pub pin: Option<u64>,
+}
+
+impl Settings {
+    fn path() -> Option<std::path::PathBuf> {
+        crate::recovery::data_dir().map(|d| d.join("HarshPad").join("settings.json"))
+    }
+
+    /// Missing or damaged settings fall back to the defaults.
+    pub fn load() -> Self {
+        Self::path()
+            .and_then(|p| std::fs::read(p).ok())
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save(&self) {
+        let Some(path) = Self::path() else { return };
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        if let Ok(json) = serde_json::to_vec_pretty(self) {
+            let _ = harshpad_core::document::write_atomically(&path, &json);
+        }
+    }
+
+    pub fn locked(&self) -> bool {
+        self.pin.is_some()
+    }
+}

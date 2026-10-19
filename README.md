@@ -2,12 +2,12 @@
   <img src="assets/icon-256.png" alt="HarshPad icon: a blue spiral notepad with the letters HP" width="132">
 </p>
 
-<h1 align="center">HarshPad</h1>
+<h1 align="center">HarshPad Studio</h1>
 
 <p align="center">
-  <b>The notepad you already know, rebuilt from scratch in Rust.</b><br>
-  Opens in ~30 ms. One small app. No installer, no account, no telemetry, no crashes by design.<br>
-  Windows, macOS and Linux.
+  <b>A notepad, a writer and (soon) a PDF tool, in one fast app that moves to one rhythm.</b><br>
+  Plain text and rich documents in tabs · <code>.docx</code> · Markdown · one toolbar, one set of shortcuts.<br>
+  Opens in ~30 ms. No installer, no account, no telemetry. Windows, macOS and Linux.
 </p>
 
 <p align="center">
@@ -20,69 +20,73 @@
 
 <p align="center">
   <a href="#download"><b>⬇ Download</b></a> ·
-  <a href="#why-harshpad">✨ Why</a> ·
+  <a href="#one-app-four-modes">🎛 Modes</a> ·
+  <a href="#the-writer">✍️ Writer</a> ·
+  <a href="#the-notepad">📄 Notepad</a> ·
   <a href="#fast-measured">⚡ Speed</a> ·
-  <a href="#the-cli">🤖 CLI</a> ·
-  <a href="#coming-next-harshpad-studio">🚀 Next</a>
+  <a href="#roadmap">🚀 Roadmap</a>
 </p>
 
 <p align="center">
-  <img src="https://github.com/hvpathak/HarshPad/releases/download/v0.1.1/screenshot.png" alt="HarshPad with its blue notepad icon in the title bar, showing a welcome file, the File, Edit, Format, View and Help menus, and a status bar reading Ln 1, Col 1, 100%, Windows (CRLF), UTF-8" width="100%">
+  <img src="https://github.com/hvpathak/HarshPad/releases/download/v0.3.0/studio.png" alt="HarshPad Studio: a document tab on a white page with a blue heading, bold, italic, strikethrough, a link, underline, inline code, bulleted and numbered lists, a quote and a code block; the toolbar shows the paragraph style, B I U S buttons, colours, alignment and lists; the status bar reads Para 1, Col 1, 80 words, 100%, Markdown" width="100%">
 </p>
 
 ---
 
-## Why HarshPad?
+## One app, four modes
 
-The notepad is the one app everyone opens every day. HarshPad keeps everything your hands already know,
-and adds the guarantees a text editor should always have had.
+| Mode | What you get |
+|---|---|
+| **All together (Studio)** | Text files and rich documents side by side in tabs, with one-click conversion between them |
+| **Notepad only** | The fast, distraction-free plain-text editor, nothing else |
+| **Writer only** | Just the document writer: perfect for students and kids |
+| **PDF only** | Coming in the next release |
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>⚡ Instant</h3>
-      The window is up in about <b>30 ms</b> (warm start). Big files open without freezing: the editor refuses
-      anything over 64 MB politely instead of locking up.
-    </td>
-    <td width="50%" valign="top">
-      <h3>🛡️ Never loses your text</h3>
-      Saves are <b>atomic</b>: HarshPad writes a temporary file and swaps it in, so a full disk or a power cut
-      can't leave you with half a file. Closing with unsaved changes always asks first.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <h3>🦀 No crashes by design</h3>
-      <code>unwrap</code>, <code>panic!</code>, raw indexing and <code>unsafe</code> are banned by the compiler in all
-      app code. Every damaged file or odd input becomes a message you can act on.
-    </td>
-    <td valign="top">
-      <h3>🔤 Encodings done right</h3>
-      UTF-8, UTF-8 with BOM, UTF-16 LE and BE. CRLF and LF line endings are detected and written back
-      <b>byte for byte</b>.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <h3>⌨️ Zero learning curve</h3>
-      The menus and shortcuts you know: <kbd>Ctrl+N/O/S</kbd>, <kbd>Ctrl+Shift+S</kbd>, <kbd>Ctrl+F</kbd>,
-      <kbd>F3</kbd> / <kbd>Shift+F3</kbd>, <kbd>Ctrl+H</kbd>, <kbd>Ctrl++/−/0</kbd>, Word Wrap, Status Bar.
-    </td>
-    <td valign="top">
-      <h3>🔒 Private</h3>
-      No network code at all. Nothing is sent anywhere, ever. Your fonts come from your own computer.
-    </td>
-  </tr>
-</table>
+Switch from the **◧** button next to the tabs (or *View → Mode*). A **parent lock** keeps the app in one
+mode behind a 4–8 digit PIN, so a child can use the Writer without wandering into anything else.
+Files of another kind open as a new copy in the current mode, so nothing on disk is ever overwritten
+in a different format.
+
+## The Writer
+
+| | |
+|---|---|
+| ✍️ **Styles** | Title, Heading 1–3, Quote, Code block, bulleted and numbered lists (Enter continues a list; Enter on an empty item ends it) |
+| 🅱️ **Formatting** | Bold, italic, underline, strikethrough, inline code, font size, text colour, highlight, links, alignment, clear formatting |
+| ⚡ **Markdown shortcuts** | Type `- `, `1. `, `# `, `## `, `> ` at the start of a line and it becomes a list, heading or quote |
+| 📂 **Files** | Open and save `.docx`, Markdown, and the lossless `.hpdoc` format |
+| 🔍 **Find & Replace** | Works across styles; replacing keeps each match's formatting |
+| 🔁 **Sync** | *Open as plain text* turns any document into Markdown; *Open as document* turns Markdown into formatting |
+
+Shortcuts you already know: <kbd>Ctrl+B/I/U</kbd>, <kbd>Ctrl+L/E/R/J</kbd> to align, <kbd>Ctrl+Alt+1/2/3</kbd> headings,
+<kbd>Ctrl+Alt+0</kbd> normal text, <kbd>Ctrl+Shift+L</kbd> bullets, <kbd>Ctrl+K</kbd> link, <kbd>Ctrl+]</kbd>/<kbd>Ctrl+[</kbd> size,
+<kbd>Ctrl+Space</kbd> clear formatting.
+
+## The Notepad
+
+Everything the classic notepad does, with guarantees it never had:
+
+- **Never loses your text:** atomic saves, a prompt before closing unsaved work, and **crash recovery**
+  (unsaved tabs are kept every 30 seconds and come back after a crash).
+- **Encodings done right:** UTF-8, UTF-8 BOM, UTF-16 LE/BE; CRLF and LF kept byte for byte.
+- **No crashes by design:** `unwrap`, `panic!`, raw indexing and `unsafe` are banned by the compiler in app code.
+- Find/Replace, word wrap, zoom, status bar, drag and drop, the shortcuts your hands know.
+
+## One rhythm across every tab
+
+The same layout everywhere: **undo · find · zoom · tools for this tab**, and the same status bar
+(position · words · zoom · format). Every action lives in one command catalog, so the same key does the
+same thing in every tab and no key means two things. <kbd>Ctrl+Shift+P</kbd> opens the command palette.
 
 ## Fast, measured
 
-Measured on a mid-range laptop (i5-13450HX), release build:
+On a mid-range laptop (i5-13450HX), release build:
 
 | | |
 |---|---|
 | Window open (warm start) | **~30 ms** |
-| App size | **4.6 MB**, a single file |
+| Memory with a document open | **~76 MB** |
+| App size | **5.7 MB**, a single file |
 | CLI: 200,000 replacements in a 10.7 MB file | **149 ms** |
 
 ## Download
@@ -96,28 +100,14 @@ Measured on a mid-range laptop (i5-13450HX), release build:
 Command-line tool: [Windows](https://github.com/hvpathak/HarshPad/releases/latest/download/harshpad-cli-windows-x64.exe) ·
 [macOS](https://github.com/hvpathak/HarshPad/releases/latest/download/harshpad-cli-macos-universal.zip) · Linux (inside the tarball).
 
-Open a file directly: `harshpad notes.txt` (a missing file starts empty and saves to that name).
-Drag a file onto the window to open it.
-
-## Shortcuts
-
-| Action | Shortcut |
-|---|---|
-| New / Open / Save | <kbd>Ctrl+N</kbd> / <kbd>Ctrl+O</kbd> / <kbd>Ctrl+S</kbd> |
-| Save As | <kbd>Ctrl+Shift+S</kbd> |
-| Find / Replace | <kbd>Ctrl+F</kbd> / <kbd>Ctrl+H</kbd> |
-| Find Next / Previous | <kbd>F3</kbd> / <kbd>Shift+F3</kbd> |
-| Zoom in / out / reset | <kbd>Ctrl++</kbd> / <kbd>Ctrl+−</kbd> / <kbd>Ctrl+0</kbd> |
-| Undo / Redo / Select all | <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> / <kbd>Ctrl+A</kbd> |
-
 ## The CLI
 
-The same engine without a window, for scripts and AI agents:
-
 ```text
-harshpad-cli info notes.txt                              # encoding, line endings, lines, characters
-harshpad-cli replace notes.txt "teh" "the" --match-case  # replace all, saved atomically
-harshpad-cli commands                                    # every command, its menu and shortcut
+harshpad-cli convert notes.md report.docx          # .txt .md .docx .hpdoc, any to any
+harshpad-cli words essay.docx                      # word and character count
+harshpad-cli replace notes.txt "teh" "the"         # replace all, saved atomically
+harshpad-cli info notes.txt                        # encoding, line endings, lines
+harshpad-cli commands                              # every command, menu and shortcut
 ```
 
 ## Build from source
@@ -135,25 +125,23 @@ Rust 1.88+. On Linux, install GTK 3 and xkbcommon headers first
 ## How it's built
 
 ```text
-crates/core        the engine: documents, encodings, find/replace, the command catalog (no UI code)
-apps/harshpad      the desktop app: a thin egui shell that draws the engine's state
-apps/harshpad-cli  the same engine from the command line
+crates/core     commands (one catalog for every tab kind), modes, plain-text documents, find, undo
+crates/rich     rich documents: styled-text model, .docx (from the public ECMA-376 standard), Markdown, .hpdoc
+apps/harshpad   the desktop app: tabs, the shared toolbar and status bar, Notepad and Writer views
+apps/harshpad-cli  the same engines from the command line
 ```
 
-- **Everything is a command.** Menus, shortcuts and the CLI are all generated from one catalog.
-- **Tests are the gate.** Encodings round-trip byte for byte, malformed files can't panic, find/replace is
-  tested on non-ASCII text, and CI runs everything on Windows, macOS and Linux.
-- **Clean-room.** Written from scratch by observing how the classic notepad behaves. No code, icons or
-  assets were copied.
+- **Engine first:** all editing logic lives in libraries with no UI code, tested headlessly (50+ tests).
+- **Clean-room:** behaviour is studied, never copied. `.docx` support is written from the public standard.
+- **Following upstream:** a weekly [radar](docs/upstream.md) reads the public feature notes of the open-source
+  writer and PDF projects we track (never their code) and opens an issue for anything new; library updates
+  arrive through Dependabot and are tested on every platform.
 
-## Coming next: HarshPad Studio
+## Roadmap
 
-HarshPad is growing into one app for **plain text, rich documents and PDFs**, all in tabs that work the same way:
-
-- **Write:** headings, bold/italic/underline, colours, lists, links; open and save `.docx` and Markdown.
-- **Read PDFs:** sharp at any zoom, thumbnails, search, copy text.
-- **Organize PDFs:** rotate, delete, reorder, merge, split, extract pages.
-- **Comment and sign:** highlights, notes, ink, signatures; export any document to PDF.
+- **PDF** (next): read with sharp zoom, thumbnails, search, copy text; rotate, delete, reorder, merge, split pages.
+- **Comment & sign:** highlights, notes, ink, signatures; export any document to PDF with page numbers.
+- **Writer:** tables, images, headers and footers, spelling.
 
 Ideas and pull requests are welcome. The house rules: no `unwrap`/`panic`/`unsafe` outside tests,
 and every change comes with a test.

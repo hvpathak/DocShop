@@ -155,7 +155,7 @@ impl Document {
 
 /// Writes to a temporary file next to `path`, then renames it over the target, so
 /// a failed save (full disk, crash) never leaves a half-written file behind.
-fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
+pub fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let file_name = path
         .file_name()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not a file path"))?;

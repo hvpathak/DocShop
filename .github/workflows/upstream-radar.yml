@@ -1,0 +1,72 @@
+name: Upstream radar
+
+# Once a week, read ONLY the public feature documents (README, roadmap, gaps,
+# parity) and release notes of the projects HarshPad Studio tracks, never their
+# code, and open an issue listing what's new. Each item is then mapped to our
+# crates with docs/upstream.md and built clean-room.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compare feature documents with last week's snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          report=""
+          for repo in storytold/wordcraft storytold/pdfcraft; do
+            for file in README.md docs/roadmap.md docs/gaps.md docs/target-app-parity.md; do
+              dest=".radar/$repo/$file"
+              mkdir -p "$(dirname "$dest")"
+              fresh="$(mktemp)"
+              curl -fsSL "https://raw.githubusercontent.com/$repo/main/$file" -o "$fresh" || continue
+              if [ -f "$dest" ]; then
+                # Only added headings, bullets and table rows: that's where features are announced.
+                added="$(diff --unchanged-line-format= --old-line-format= --new-line-format='%L' "$dest" "$fresh" \
+                  | grep -E '^\s*([-*|]|#{1,4} )' | head -n 60 || true)"
+                if [ -n "$added" ]; then
+                  report+=$'\n'"### $repo · \`$file\`"$'\n'"$added"$'\n'
+                fi
+              fi
+              cp "$fresh" "$dest"
+            done
+            # New releases: record the tag and quote the release notes' bullet points.
+            tag="$(gh release view --repo "$repo" --json tagName --jq .tagName 2>/dev/null || true)"
+            if [ -n "$tag" ]; then
+              tagfile=".radar/$repo/release.txt"
+              if [ -f "$tagfile" ] && [ "$(cat "$tagfile")" != "$tag" ]; then
+                notes="$(gh release view "$tag" --repo "$repo" --json body --jq .body | grep -E '^\s*[-*] ' | head -n 40 || true)"
+                report+=$'\n'"### $repo · new release \`$tag\`"$'\n'"$notes"$'\n'
+              fi
+              echo "$tag" > "$tagfile"
+            fi
+          done
+
+          if [ -n "$(git status --porcelain .radar)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .radar
+            git commit -m "Upstream radar: refresh feature snapshots"
+            git push
+          fi
+
+          if [ -n "$report" ]; then
+            gh label create radar --color 1E88E5 --description "Features announced upstream" --force >/dev/null 2>&1 || true
+            body="$(printf '%s\n\n%s\n%s\n' \
+              "New feature notes in the projects HarshPad Studio tracks (documents only, never code)." \
+              "Map each item to our crates with [docs/upstream.md](../blob/main/docs/upstream.md), then build it clean-room." \
+              "$report" | head -c 60000)"
+            gh issue create --title "Upstream radar: $(date -u +%Y-%m-%d)" --body "$body" --label radar
+          else
+            echo "Nothing new upstream this week."
+          fi

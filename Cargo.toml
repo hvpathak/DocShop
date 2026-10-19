@@ -1,15 +1,16 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "apps/harshpad", "apps/harshpad-cli"]
+members = ["crates/core", "crates/rich", "apps/harshpad", "apps/harshpad-cli"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/hvpathak/HarshPad"
 
 [workspace.dependencies]
 harshpad-core = { path = "crates/core" }
+harshpad-rich = { path = "crates/rich" }
 eframe = "0.31"
 rfd = "0.15"
 

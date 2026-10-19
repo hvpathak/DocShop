@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 harshpad-core.workspace = true
+harshpad-rich.workspace = true
 
 [lints]
 workspace = true

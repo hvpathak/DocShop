@@ -5,13 +5,16 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use harshpad_core::commands::CATALOG;
-use harshpad_core::document::Document;
+use harshpad_core::document::{Document, write_atomically};
 use harshpad_core::session::Session;
+use harshpad_rich::{RichDoc, RichFormat};
 
 const USAGE: &str = "usage:
   harshpad-cli commands
   harshpad-cli info <file>
-  harshpad-cli replace <file> <find> <replace-with> [--match-case]";
+  harshpad-cli replace <file> <find> <replace-with> [--match-case]
+  harshpad-cli convert <in> <out>      (.txt .md .docx .hpdoc, any to any)
+  harshpad-cli words <file>            (word and character count)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -36,8 +39,46 @@ fn run(args: &[String]) -> Result<String, String> {
             let match_case = flags.contains(&"--match-case");
             replace(Path::new(path), needle, replacement, match_case)
         }
+        ["convert", input, output] => convert(Path::new(input), Path::new(output)),
+        ["words", path] => {
+            let doc = read_rich(Path::new(path))?;
+            Ok(format!(
+                "words: {}\ncharacters: {}",
+                doc.word_count(),
+                doc.char_count()
+            ))
+        }
         _ => Err(USAGE.to_owned()),
     }
+}
+
+/// Reads any supported file as a rich document (plain text becomes plain paragraphs).
+fn read_rich(path: &Path) -> Result<RichDoc, String> {
+    match RichFormat::from_path(path) {
+        Some(format) => {
+            let bytes = std::fs::read(path)
+                .map_err(|e| format!("could not open {}: {e}", path.display()))?;
+            harshpad_rich::decode(&bytes, format)
+                .map_err(|e| format!("could not read {}: {e}", path.display()))
+        }
+        None => Ok(RichDoc::from_plain(&open(path)?.text)),
+    }
+}
+
+fn convert(input: &Path, output: &Path) -> Result<String, String> {
+    let doc = read_rich(input)?;
+    let bytes = match RichFormat::from_path(output) {
+        Some(format) => harshpad_rich::encode(&doc, format).map_err(|e| e.to_string())?,
+        None => doc.text().replace('\n', "\r\n").into_bytes(),
+    };
+    write_atomically(output, &bytes)
+        .map_err(|e| format!("could not save {}: {e}", output.display()))?;
+    Ok(format!(
+        "wrote {} ({} paragraphs, {} words)",
+        output.display(),
+        doc.paras().len(),
+        doc.word_count()
+    ))
 }
 
 fn list_commands() -> String {
@@ -115,6 +156,39 @@ mod tests {
         assert!(info.contains("line endings: Windows (CRLF)"));
         assert!(info.contains("lines: 3"));
         fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn convert_between_every_format() {
+        let dir = std::env::temp_dir();
+        let pid = std::process::id();
+        let md = dir.join(format!("hn-cli-{pid}.md"));
+        fs::write(&md, "# Title\n\nSome **bold** text.\n\n- one\n- two\n").unwrap();
+        let p = |ext: &str| {
+            dir.join(format!("hn-cli-{pid}-out.{ext}"))
+                .to_string_lossy()
+                .into_owned()
+        };
+        let m = md.to_string_lossy().into_owned();
+        for out in [p("docx"), p("hpdoc"), p("txt")] {
+            assert!(
+                run(&args(&["convert", &m, &out]))
+                    .unwrap()
+                    .contains("4 paragraphs"),
+                "{out}"
+            );
+        }
+        // And back from .docx to Markdown keeps the structure.
+        run(&args(&["convert", &p("docx"), &p("md")])).unwrap();
+        let back = fs::read_to_string(p("md")).unwrap();
+        assert!(
+            back.contains("# Title") && back.contains("**bold**") && back.contains("- two"),
+            "{back}"
+        );
+        assert!(run(&args(&["words", &m])).unwrap().contains("words: 6"));
+        for f in [m, p("docx"), p("hpdoc"), p("txt"), p("md")] {
+            fs::remove_file(f).ok();
+        }
     }
 
     #[test]

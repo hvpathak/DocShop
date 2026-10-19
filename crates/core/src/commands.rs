@@ -1,25 +1,67 @@
-//! The command catalog: every user-visible action, with the label, menu and default
-//! shortcut it has in Windows Notepad. The menu bar, keyboard shortcuts, CLI and
-//! tests all read this one list.
+//! The command catalog: every action in HarshPad Studio, with its label, menu,
+//! shortcut and the kinds of tab it works in. The menu bar, keyboard shortcuts,
+//! command palette, CLI and tests all read this one list, so the same key always
+//! does the same thing in every tab, and no key means two things.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Command {
-    New,
+    // File
+    NewText,
+    NewDocument,
     Open,
     Save,
     SaveAs,
+    ConvertToDocument,
+    ConvertToText,
+    CloseTab,
     Exit,
+    // Edit
+    Undo,
+    Redo,
     Find,
     FindNext,
     FindPrevious,
     Replace,
     ReplaceNext,
     ReplaceAll,
+    CommandPalette,
+    // Format: documents
+    StyleNormal,
+    StyleTitle,
+    StyleHeading1,
+    StyleHeading2,
+    StyleHeading3,
+    StyleQuote,
+    StyleCode,
+    BulletList,
+    NumberedList,
+    Bold,
+    Italic,
+    Underline,
+    Strike,
+    InlineCode,
+    BiggerText,
+    SmallerText,
+    ClearFormatting,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    AlignJustify,
+    InsertLink,
+    // Format: plain text
     WordWrap,
+    // View
+    NextTab,
+    PreviousTab,
     ZoomIn,
     ZoomOut,
     ZoomReset,
     StatusBar,
+    ModeStudio,
+    ModeNotepad,
+    ModeWriter,
+    ModePdf,
+    ParentLock,
     About,
 }
 
@@ -46,32 +88,101 @@ impl Menu {
     }
 }
 
+/// The kinds of tab a command works in. Elsewhere it is greyed out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Kinds {
+    pub text: bool,
+    pub doc: bool,
+}
+
+impl Kinds {
+    pub const ALL: Kinds = Kinds {
+        text: true,
+        doc: true,
+    };
+    pub const TEXT: Kinds = Kinds {
+        text: true,
+        doc: false,
+    };
+    pub const DOC: Kinds = Kinds {
+        text: false,
+        doc: true,
+    };
+}
+
+/// The kind of the active tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TabKind {
+    Text,
+    Doc,
+}
+
 /// Keys used by the catalog. The UI maps these to its toolkit's keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Key {
-    N,
-    O,
-    S,
+    B,
+    E,
     F,
     H,
+    I,
+    J,
+    K,
+    L,
+    N,
+    O,
+    P,
+    R,
+    S,
+    U,
+    W,
+    X,
+    Y,
+    Z,
+    Num0,
+    Num1,
+    Num2,
+    Num3,
     F3,
     Plus,
     Minus,
-    Num0,
+    OpenBracket,
+    CloseBracket,
+    Space,
+    Tab,
 }
 
 impl Key {
     fn label(self) -> &'static str {
         match self {
-            Key::N => "N",
-            Key::O => "O",
-            Key::S => "S",
+            Key::B => "B",
+            Key::E => "E",
             Key::F => "F",
             Key::H => "H",
+            Key::I => "I",
+            Key::J => "J",
+            Key::K => "K",
+            Key::L => "L",
+            Key::N => "N",
+            Key::O => "O",
+            Key::P => "P",
+            Key::R => "R",
+            Key::S => "S",
+            Key::U => "U",
+            Key::W => "W",
+            Key::X => "X",
+            Key::Y => "Y",
+            Key::Z => "Z",
+            Key::Num0 => "0",
+            Key::Num1 => "1",
+            Key::Num2 => "2",
+            Key::Num3 => "3",
             Key::F3 => "F3",
             Key::Plus => "Plus",
             Key::Minus => "Minus",
-            Key::Num0 => "0",
+            Key::OpenBracket => "[",
+            Key::CloseBracket => "]",
+            Key::Space => "Space",
+            Key::Tab => "Tab",
         }
     }
 }
@@ -80,6 +191,7 @@ impl Key {
 pub struct Shortcut {
     pub ctrl: bool,
     pub shift: bool,
+    pub alt: bool,
     pub key: Key,
 }
 
@@ -88,6 +200,7 @@ impl Shortcut {
         Self {
             ctrl: false,
             shift: false,
+            alt: false,
             key,
         }
     }
@@ -95,6 +208,7 @@ impl Shortcut {
         Self {
             ctrl: true,
             shift: false,
+            alt: false,
             key,
         }
     }
@@ -102,6 +216,15 @@ impl Shortcut {
         Self {
             ctrl: true,
             shift: true,
+            alt: false,
+            key,
+        }
+    }
+    const fn ctrl_alt(key: Key) -> Self {
+        Self {
+            ctrl: true,
+            shift: false,
+            alt: true,
             key,
         }
     }
@@ -109,19 +232,23 @@ impl Shortcut {
         Self {
             ctrl: false,
             shift: true,
+            alt: false,
             key,
         }
     }
 
     /// More modifiers first, so Ctrl+S never swallows Ctrl+Shift+S.
     pub fn modifier_count(self) -> u8 {
-        u8::from(self.ctrl) + u8::from(self.shift)
+        u8::from(self.ctrl) + u8::from(self.shift) + u8::from(self.alt)
     }
 
     pub fn label(self) -> String {
         let mut parts = Vec::new();
         if self.ctrl {
             parts.push("Ctrl");
+        }
+        if self.alt {
+            parts.push("Alt");
         }
         if self.shift {
             parts.push("Shift");
@@ -137,12 +264,22 @@ pub struct CommandSpec {
     /// Stable id for the CLI, logs and agents (`area.action`).
     pub id: &'static str,
     pub label: &'static str,
-    /// `None` for commands reached only from the Find bar or a shortcut.
+    /// `None` for commands reached only from a toolbar, the Find bar or a shortcut.
     pub menu: Option<Menu>,
     pub shortcut: Option<Shortcut>,
+    pub kinds: Kinds,
     /// Shown with a check mark (on/off setting).
     pub toggle: bool,
     pub separator_before: bool,
+}
+
+impl CommandSpec {
+    pub fn works_in(&self, kind: TabKind) -> bool {
+        match kind {
+            TabKind::Text => self.kinds.text,
+            TabKind::Doc => self.kinds.doc,
+        }
+    }
 }
 
 const fn spec(
@@ -151,6 +288,7 @@ const fn spec(
     label: &'static str,
     menu: Option<Menu>,
     shortcut: Option<Shortcut>,
+    kinds: Kinds,
 ) -> CommandSpec {
     CommandSpec {
         command,
@@ -158,6 +296,7 @@ const fn spec(
         label,
         menu,
         shortcut,
+        kinds,
         toggle: false,
         separator_before: false,
     }
@@ -175,96 +314,372 @@ const fn separated(mut s: CommandSpec) -> CommandSpec {
 
 use Command as C;
 use Key as K;
+use Kinds as KS;
 use Menu as M;
+use Shortcut as S;
 
-/// In menu order. Labels and shortcuts follow Windows Notepad (observed behaviour).
+/// In menu order.
 pub const CATALOG: &[CommandSpec] = &[
     spec(
-        C::New,
-        "file.new",
-        "New",
+        C::NewText,
+        "file.newText",
+        "New text file",
         Some(M::File),
-        Some(Shortcut::ctrl(K::N)),
+        Some(S::ctrl(K::N)),
+        KS::ALL,
+    ),
+    spec(
+        C::NewDocument,
+        "file.newDocument",
+        "New document",
+        Some(M::File),
+        Some(S::ctrl_shift(K::N)),
+        KS::ALL,
     ),
     spec(
         C::Open,
         "file.open",
         "Open…",
         Some(M::File),
-        Some(Shortcut::ctrl(K::O)),
+        Some(S::ctrl(K::O)),
+        KS::ALL,
     ),
     spec(
         C::Save,
         "file.save",
         "Save",
         Some(M::File),
-        Some(Shortcut::ctrl(K::S)),
+        Some(S::ctrl(K::S)),
+        KS::ALL,
     ),
     spec(
         C::SaveAs,
         "file.saveAs",
         "Save As…",
         Some(M::File),
-        Some(Shortcut::ctrl_shift(K::S)),
+        Some(S::ctrl_shift(K::S)),
+        KS::ALL,
     ),
-    separated(spec(C::Exit, "file.exit", "Exit", Some(M::File), None)),
+    separated(spec(
+        C::ConvertToDocument,
+        "file.convertToDocument",
+        "Open as document",
+        Some(M::File),
+        None,
+        KS::TEXT,
+    )),
     spec(
+        C::ConvertToText,
+        "file.convertToText",
+        "Open as plain text (Markdown)",
+        Some(M::File),
+        None,
+        KS::DOC,
+    ),
+    separated(spec(
+        C::CloseTab,
+        "file.closeTab",
+        "Close tab",
+        Some(M::File),
+        Some(S::ctrl(K::W)),
+        KS::ALL,
+    )),
+    spec(C::Exit, "file.exit", "Exit", Some(M::File), None, KS::ALL),
+    spec(
+        C::Undo,
+        "edit.undo",
+        "Undo",
+        Some(M::Edit),
+        Some(S::ctrl(K::Z)),
+        KS::ALL,
+    ),
+    spec(
+        C::Redo,
+        "edit.redo",
+        "Redo",
+        Some(M::Edit),
+        Some(S::ctrl(K::Y)),
+        KS::ALL,
+    ),
+    separated(spec(
         C::Find,
         "edit.find",
         "Find…",
         Some(M::Edit),
-        Some(Shortcut::ctrl(K::F)),
-    ),
+        Some(S::ctrl(K::F)),
+        KS::ALL,
+    )),
     spec(
         C::FindNext,
         "edit.findNext",
         "Find Next",
         Some(M::Edit),
-        Some(Shortcut::key(K::F3)),
+        Some(S::key(K::F3)),
+        KS::ALL,
     ),
     spec(
         C::FindPrevious,
         "edit.findPrevious",
         "Find Previous",
         Some(M::Edit),
-        Some(Shortcut::shift(K::F3)),
+        Some(S::shift(K::F3)),
+        KS::ALL,
     ),
     spec(
         C::Replace,
         "edit.replace",
         "Replace…",
         Some(M::Edit),
-        Some(Shortcut::ctrl(K::H)),
+        Some(S::ctrl(K::H)),
+        KS::ALL,
     ),
-    spec(C::ReplaceNext, "edit.replaceNext", "Replace", None, None),
-    spec(C::ReplaceAll, "edit.replaceAll", "Replace All", None, None),
-    toggle(spec(
+    spec(
+        C::ReplaceNext,
+        "edit.replaceNext",
+        "Replace",
+        None,
+        None,
+        KS::ALL,
+    ),
+    spec(
+        C::ReplaceAll,
+        "edit.replaceAll",
+        "Replace All",
+        None,
+        None,
+        KS::ALL,
+    ),
+    separated(spec(
+        C::CommandPalette,
+        "edit.commandPalette",
+        "Command palette…",
+        Some(M::Edit),
+        Some(S::ctrl_shift(K::P)),
+        KS::ALL,
+    )),
+    spec(
+        C::StyleNormal,
+        "format.normal",
+        "Normal text",
+        Some(M::Format),
+        Some(S::ctrl_alt(K::Num0)),
+        KS::DOC,
+    ),
+    spec(
+        C::StyleTitle,
+        "format.title",
+        "Title",
+        Some(M::Format),
+        None,
+        KS::DOC,
+    ),
+    spec(
+        C::StyleHeading1,
+        "format.heading1",
+        "Heading 1",
+        Some(M::Format),
+        Some(S::ctrl_alt(K::Num1)),
+        KS::DOC,
+    ),
+    spec(
+        C::StyleHeading2,
+        "format.heading2",
+        "Heading 2",
+        Some(M::Format),
+        Some(S::ctrl_alt(K::Num2)),
+        KS::DOC,
+    ),
+    spec(
+        C::StyleHeading3,
+        "format.heading3",
+        "Heading 3",
+        Some(M::Format),
+        Some(S::ctrl_alt(K::Num3)),
+        KS::DOC,
+    ),
+    spec(
+        C::StyleQuote,
+        "format.quote",
+        "Quote",
+        Some(M::Format),
+        None,
+        KS::DOC,
+    ),
+    spec(
+        C::StyleCode,
+        "format.codeBlock",
+        "Code block",
+        Some(M::Format),
+        None,
+        KS::DOC,
+    ),
+    separated(spec(
+        C::BulletList,
+        "format.bulletList",
+        "Bulleted list",
+        Some(M::Format),
+        Some(S::ctrl_shift(K::L)),
+        KS::DOC,
+    )),
+    spec(
+        C::NumberedList,
+        "format.numberedList",
+        "Numbered list",
+        Some(M::Format),
+        None,
+        KS::DOC,
+    ),
+    separated(spec(
+        C::Bold,
+        "format.bold",
+        "Bold",
+        Some(M::Format),
+        Some(S::ctrl(K::B)),
+        KS::DOC,
+    )),
+    spec(
+        C::Italic,
+        "format.italic",
+        "Italic",
+        Some(M::Format),
+        Some(S::ctrl(K::I)),
+        KS::DOC,
+    ),
+    spec(
+        C::Underline,
+        "format.underline",
+        "Underline",
+        Some(M::Format),
+        Some(S::ctrl(K::U)),
+        KS::DOC,
+    ),
+    spec(
+        C::Strike,
+        "format.strike",
+        "Strikethrough",
+        Some(M::Format),
+        Some(S::ctrl_shift(K::X)),
+        KS::DOC,
+    ),
+    spec(
+        C::InlineCode,
+        "format.inlineCode",
+        "Inline code",
+        Some(M::Format),
+        None,
+        KS::DOC,
+    ),
+    spec(
+        C::BiggerText,
+        "format.bigger",
+        "Bigger text",
+        Some(M::Format),
+        Some(S::ctrl(K::CloseBracket)),
+        KS::DOC,
+    ),
+    spec(
+        C::SmallerText,
+        "format.smaller",
+        "Smaller text",
+        Some(M::Format),
+        Some(S::ctrl(K::OpenBracket)),
+        KS::DOC,
+    ),
+    spec(
+        C::ClearFormatting,
+        "format.clear",
+        "Clear formatting",
+        Some(M::Format),
+        Some(S::ctrl(K::Space)),
+        KS::DOC,
+    ),
+    separated(spec(
+        C::AlignLeft,
+        "format.alignLeft",
+        "Align left",
+        Some(M::Format),
+        Some(S::ctrl(K::L)),
+        KS::DOC,
+    )),
+    spec(
+        C::AlignCenter,
+        "format.alignCenter",
+        "Center",
+        Some(M::Format),
+        Some(S::ctrl(K::E)),
+        KS::DOC,
+    ),
+    spec(
+        C::AlignRight,
+        "format.alignRight",
+        "Align right",
+        Some(M::Format),
+        Some(S::ctrl(K::R)),
+        KS::DOC,
+    ),
+    spec(
+        C::AlignJustify,
+        "format.justify",
+        "Justify",
+        Some(M::Format),
+        Some(S::ctrl(K::J)),
+        KS::DOC,
+    ),
+    separated(spec(
+        C::InsertLink,
+        "format.link",
+        "Link…",
+        Some(M::Format),
+        Some(S::ctrl(K::K)),
+        KS::DOC,
+    )),
+    separated(toggle(spec(
         C::WordWrap,
         "format.wordWrap",
         "Word Wrap",
         Some(M::Format),
         None,
-    )),
+        KS::TEXT,
+    ))),
     spec(
+        C::NextTab,
+        "view.nextTab",
+        "Next tab",
+        Some(M::View),
+        Some(S::ctrl(K::Tab)),
+        KS::ALL,
+    ),
+    spec(
+        C::PreviousTab,
+        "view.previousTab",
+        "Previous tab",
+        Some(M::View),
+        Some(S::ctrl_shift(K::Tab)),
+        KS::ALL,
+    ),
+    separated(spec(
         C::ZoomIn,
         "view.zoomIn",
         "Zoom In",
         Some(M::View),
-        Some(Shortcut::ctrl(K::Plus)),
-    ),
+        Some(S::ctrl(K::Plus)),
+        KS::ALL,
+    )),
     spec(
         C::ZoomOut,
         "view.zoomOut",
         "Zoom Out",
         Some(M::View),
-        Some(Shortcut::ctrl(K::Minus)),
+        Some(S::ctrl(K::Minus)),
+        KS::ALL,
     ),
     spec(
         C::ZoomReset,
         "view.zoomReset",
         "Restore Default Zoom",
         Some(M::View),
-        Some(Shortcut::ctrl(K::Num0)),
+        Some(S::ctrl(K::Num0)),
+        KS::ALL,
     ),
     separated(toggle(spec(
         C::StatusBar,
@@ -272,13 +687,55 @@ pub const CATALOG: &[CommandSpec] = &[
         "Status Bar",
         Some(M::View),
         None,
+        KS::ALL,
     ))),
+    separated(toggle(spec(
+        C::ModeStudio,
+        "view.modeStudio",
+        "Mode: All together (Studio)",
+        Some(M::View),
+        None,
+        KS::ALL,
+    ))),
+    toggle(spec(
+        C::ModeNotepad,
+        "view.modeNotepad",
+        "Mode: Notepad only",
+        Some(M::View),
+        None,
+        KS::ALL,
+    )),
+    toggle(spec(
+        C::ModeWriter,
+        "view.modeWriter",
+        "Mode: Writer only",
+        Some(M::View),
+        None,
+        KS::ALL,
+    )),
+    toggle(spec(
+        C::ModePdf,
+        "view.modePdf",
+        "Mode: PDF only (coming soon)",
+        Some(M::View),
+        None,
+        KS::ALL,
+    )),
+    spec(
+        C::ParentLock,
+        "view.parentLock",
+        "Parent lock…",
+        Some(M::View),
+        None,
+        KS::ALL,
+    ),
     spec(
         C::About,
         "help.about",
         "About HarshPad",
         Some(M::Help),
         None,
+        KS::ALL,
     ),
 ];
 
@@ -294,61 +751,57 @@ pub fn in_menu(menu: Menu) -> impl Iterator<Item = &'static CommandSpec> {
     CATALOG.iter().filter(move |s| s.menu == Some(menu))
 }
 
+/// Commands whose label or id contains every word of `query` (command palette).
+pub fn search(query: &str) -> Vec<&'static CommandSpec> {
+    let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+    CATALOG
+        .iter()
+        .filter(|s| {
+            let hay = format!("{} {}", s.label, s.id).to_lowercase();
+            words.iter().all(|w| hay.contains(w.as_str()))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashSet;
 
-    const ALL: [Command; 17] = [
-        C::New,
-        C::Open,
-        C::Save,
-        C::SaveAs,
-        C::Exit,
-        C::Find,
-        C::FindNext,
-        C::FindPrevious,
-        C::Replace,
-        C::ReplaceNext,
-        C::ReplaceAll,
-        C::WordWrap,
-        C::ZoomIn,
-        C::ZoomOut,
-        C::ZoomReset,
-        C::StatusBar,
-        C::About,
-    ];
-
     #[test]
-    fn every_command_is_in_the_catalog_once() {
-        for command in ALL {
-            let count = CATALOG.iter().filter(|s| s.command == command).count();
-            assert_eq!(count, 1, "{command:?}");
-        }
-        assert_eq!(CATALOG.len(), ALL.len());
-    }
-
-    #[test]
-    fn ids_and_shortcuts_are_unique() {
+    fn ids_commands_and_shortcuts_are_unique() {
         let ids: HashSet<_> = CATALOG.iter().map(|s| s.id).collect();
         assert_eq!(ids.len(), CATALOG.len());
+        let commands: HashSet<_> = CATALOG.iter().map(|s| s.command).collect();
+        assert_eq!(commands.len(), CATALOG.len());
         let shortcuts: Vec<_> = CATALOG.iter().filter_map(|s| s.shortcut).collect();
         let unique: HashSet<_> = shortcuts.iter().collect();
-        assert_eq!(unique.len(), shortcuts.len());
+        assert_eq!(unique.len(), shortcuts.len(), "a shortcut means two things");
     }
 
     #[test]
-    fn lookups_work() {
-        assert_eq!(by_id("file.saveAs").map(|s| s.command), Some(C::SaveAs));
-        assert_eq!(spec_of(C::Find).map(|s| s.id), Some("edit.find"));
-        assert!(by_id("nope").is_none());
-        assert_eq!(in_menu(M::Format).count(), 1);
+    fn every_command_works_somewhere() {
+        assert!(CATALOG.iter().all(|s| s.kinds.text || s.kinds.doc));
+        assert!(
+            by_id("format.bold")
+                .is_some_and(|s| s.works_in(TabKind::Doc) && !s.works_in(TabKind::Text))
+        );
+        assert!(
+            by_id("edit.find")
+                .is_some_and(|s| s.works_in(TabKind::Doc) && s.works_in(TabKind::Text))
+        );
     }
 
     #[test]
-    fn shortcut_labels_read_like_notepad() {
+    fn labels_and_search() {
+        assert_eq!(Shortcut::ctrl_alt(K::Num1).label(), "Ctrl+Alt+1");
         assert_eq!(Shortcut::ctrl_shift(K::S).label(), "Ctrl+Shift+S");
-        assert_eq!(Shortcut::key(K::F3).label(), "F3");
-        assert_eq!(Shortcut::shift(K::F3).modifier_count(), 1);
+        assert!(
+            search("head 2")
+                .iter()
+                .any(|s| s.command == C::StyleHeading2)
+        );
+        assert_eq!(spec_of(C::Find).map(|s| s.id), Some("edit.find"));
+        assert_eq!(in_menu(M::Help).count(), 1);
     }
 }
