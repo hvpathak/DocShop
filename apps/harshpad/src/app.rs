@@ -519,17 +519,14 @@ fn egui_keys(key: Key) -> &'static [egui::Key] {
     }
 }
 
-/// Uses the fonts Windows already has (Notepad's Consolas, Segoe UI, and symbol
-/// fonts for characters like ✓) instead of bundling font files. Any font that is
-/// missing is skipped, and egui's built-in fonts remain as the last fallback.
+/// Uses fonts the computer already has (on Windows, macOS and Linux) instead of
+/// bundling font files: a monospace editor font, an interface font, and symbol and
+/// emoji fonts for characters like ✓. Missing fonts are skipped, and egui's
+/// built-in fonts remain as the last fallback.
 fn install_system_fonts(ctx: &egui::Context) {
-    let Some(windows_dir) = std::env::var_os("WINDIR") else {
-        return;
-    };
-    let font_dir = PathBuf::from(windows_dir).join("Fonts");
     let mut fonts = egui::FontDefinitions::default();
-    let mut add = |name: &str, file: &str, families: &[egui::FontFamily], first: bool| {
-        let Ok(bytes) = std::fs::read(font_dir.join(file)) else {
+    let mut add = |name: &str, candidates: &[&str], families: &[egui::FontFamily], first: bool| {
+        let Some(bytes) = find_font(candidates).and_then(|p| std::fs::read(p).ok()) else {
             return;
         };
         fonts.font_data.insert(
@@ -546,21 +543,105 @@ fn install_system_fonts(ctx: &egui::Context) {
         }
     };
     use egui::FontFamily::{Monospace, Proportional};
-    add("consolas", "consola.ttf", &[Monospace], true);
-    add("segoe-ui", "segoeui.ttf", &[Proportional], true);
     add(
-        "segoe-symbol",
-        "seguisym.ttf",
+        "editor",
+        &[
+            "consola.ttf",
+            "Menlo.ttc",
+            "SFNSMono.ttf",
+            "DejaVuSansMono.ttf",
+            "LiberationMono-Regular.ttf",
+            "NotoSansMono-Regular.ttf",
+        ],
+        &[Monospace],
+        true,
+    );
+    add(
+        "interface",
+        &[
+            "segoeui.ttf",
+            "SFNS.ttf",
+            "Helvetica.ttc",
+            "DejaVuSans.ttf",
+            "NotoSans-Regular.ttf",
+            "LiberationSans-Regular.ttf",
+        ],
+        &[Proportional],
+        true,
+    );
+    add(
+        "symbols",
+        &[
+            "seguisym.ttf",
+            "Apple Symbols.ttf",
+            "DejaVuSans.ttf",
+            "NotoSansSymbols2-Regular.ttf",
+        ],
         &[Monospace, Proportional],
         false,
     );
     add(
-        "segoe-emoji",
-        "seguiemj.ttf",
+        "emoji",
+        &["seguiemj.ttf", "NotoEmoji-Regular.ttf"],
         &[Monospace, Proportional],
         false,
     );
     ctx.set_fonts(fonts);
+}
+
+/// Font folders on Windows, macOS and Linux.
+fn font_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(windir) = std::env::var_os("WINDIR") {
+        dirs.push(PathBuf::from(windir).join("Fonts"));
+    }
+    for d in [
+        "/System/Library/Fonts",
+        "/System/Library/Fonts/Supplemental",
+        "/Library/Fonts",
+        "/usr/share/fonts",
+        "/usr/local/share/fonts",
+    ] {
+        dirs.push(PathBuf::from(d));
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        dirs.push(home.join("Library").join("Fonts"));
+        dirs.push(home.join(".local").join("share").join("fonts"));
+        dirs.push(home.join(".fonts"));
+    }
+    dirs
+}
+
+/// The first candidate file found anywhere under the font folders (Linux keeps
+/// fonts in sub-folders, so the search goes a few levels deep, with a budget).
+fn find_font(candidates: &[&str]) -> Option<PathBuf> {
+    fn search(dir: &Path, name: &str, depth: u32, budget: &mut u32) -> Option<PathBuf> {
+        let direct = dir.join(name);
+        if direct.is_file() {
+            return Some(direct);
+        }
+        if depth == 0 {
+            return None;
+        }
+        for entry in std::fs::read_dir(dir).ok()?.flatten() {
+            *budget += 1;
+            if *budget > 20_000 {
+                return None;
+            }
+            let path = entry.path();
+            if path.is_dir()
+                && let Some(found) = search(&path, name, depth - 1, budget)
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    let dirs = font_dirs();
+    candidates
+        .iter()
+        .find_map(|name| dirs.iter().find_map(|d| search(d, name, 4, &mut 0)))
 }
 
 fn text_file_dialog() -> FileDialog {
