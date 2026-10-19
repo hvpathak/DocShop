@@ -18,8 +18,11 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
 </p>
 
+<p align="center"><i>Dedicated to my son, <b>Harshal Pathak</b>.</i></p>
+
 <p align="center">
   <a href="#download"><b>⬇ Download</b></a> ·
+  <a href="#for-harshal-the-growing-path">📖 The growing path</a> ·
   <a href="#one-app-four-modes">🎛 Modes</a> ·
   <a href="#the-writer">✍️ Writer</a> ·
   <a href="#the-notepad">📄 Notepad</a> ·
@@ -32,6 +35,33 @@
 </p>
 
 ---
+
+## For Harshal: the growing path
+
+HarshPad was made for my son, Harshal. It is built to grow up with him, one chapter at a time.
+
+**Chapter 1 · First words.** It starts as a plain notepad. No fonts, no buttons he doesn't need: just a
+blank page where he can type a list, a joke or a plan for tomorrow, save it, and find it again.
+
+**Chapter 2 · Stories with style.** When he's ready, a parent unlocks the Writer. His words get titles,
+headings, colours and lists: a story, a school report, a letter. The notepad stays right beside it.
+
+**Chapter 3 · Real papers.** Later the PDF chapter opens: forms, books and certificates to read, search,
+put in order and sign.
+
+Each chapter keeps everything from the one before, and it works the same on Windows, macOS and Linux.
+
+<p align="center">
+  <img src="docs/images/chapter-1.png" alt="The Chapter 1 card: a notepad icon, 'Chapter 1 · First words · The Notepad is yours', a short story about starting with a blank page, a path showing 1. Notepad as current and 2. Writer and 3. PDF locked, a Let's go button, and 'HarshPad is dedicated to Harshal Pathak'" width="49%">
+  <img src="docs/images/locked-choices.png" alt="On Chapter 1, the + menu offers Text file, while Document says 'Unlocks in Chapter 2: Writer' and PDF says 'Unlocks in Chapter 3: PDF', both greyed out with a lock" width="49%">
+</p>
+
+**How to use it:** top right **◧ → 📖 Start the growing path…**, choose a parent PIN, and HarshPad
+becomes Chapter 1. The **+** menu shows the apps still to come, locked. When it's time, a parent picks
+**🔑 Unlock Chapter 2** and types the PIN; a new chapter card opens. **🚪 Leave the growing path** (also
+behind the PIN) turns it off.
+
+Where each chapter stands on its way to 100% of the projects we follow: **[Road to 100%](docs/parity.md)**.
 
 ## Tabs like your browser, a ribbon like your word processor
 
@@ -167,6 +197,8 @@ apps/harshpad-cli  the same engines from the command line
   arrive through Dependabot and are tested on every platform.
 
 ## Roadmap
+
+Full area-by-area tracker: **[Road to 100%](docs/parity.md)**.
 
 - **PDF** (next): read with sharp zoom, thumbnails, search, copy text; rotate, delete, reorder, merge, split pages.
 - **Comment & sign:** highlights, notes, ink, signatures; export any document to PDF with page numbers.

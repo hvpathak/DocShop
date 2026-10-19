@@ -1,6 +1,6 @@
 //! Settings that survive restarts: the app mode and the parent lock.
 
-use harshpad_core::modes::Mode;
+use harshpad_core::modes::{Chapter, Mode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +15,9 @@ pub struct Settings {
     pub autosave: bool,
     #[serde(default = "yes")]
     pub ruler: bool,
+    /// The growing path's current chapter; `None` when the path is off.
+    #[serde(default)]
+    pub path: Option<Chapter>,
 }
 
 impl Default for Settings {
@@ -24,6 +27,7 @@ impl Default for Settings {
             pin: None,
             autosave: false,
             ruler: true,
+            path: None,
         }
     }
 }

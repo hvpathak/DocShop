@@ -1,5 +1,13 @@
 # Dev log
 
+## 2026-10-19: v0.5.0, the growing path (for Harshal)
+- Growing path: Chapter 1 Notepad → Chapter 2 Writer → Chapter 3 PDF, unlocked one by one with the parent
+  PIN; each chapter keeps what came before. Chapter cards at unlock and at start; locked choices stay visible
+  in the + menu; the mode menu becomes the chapter menu. Off by default. Core logic and tests in modes.rs.
+- Dedication to Harshal Pathak in the README, the About box and the chapter cards.
+- docs/parity.md: Road to 100%, every area of the writer and PDF projects we follow, scored; Writer first.
+- Ribbon: narrower style cards, thin scrollbar.
+
 ## 2026-10-19: v0.4.0, browser-style tabs and the ribbon
 - Tabs moved into the title bar, modelled on a Chromium browser's tab strip (studied from a screenshot only):
   fading titles, close on active/hovered tab, unsaved dot, drag to reorder, middle-click close, widths frozen

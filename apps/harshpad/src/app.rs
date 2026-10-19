@@ -12,7 +12,7 @@ use eframe::egui::{
 };
 use harshpad_core::commands::{self, CATALOG, Command, Key, Menu, Shortcut, TabKind};
 use harshpad_core::document::{Document, write_atomically};
-use harshpad_core::modes::{self, Mode};
+use harshpad_core::modes::{self, Chapter, Mode};
 use harshpad_core::session::FindOptions;
 use harshpad_rich::{Flag, RichDoc, RichFormat, markdown};
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
@@ -156,9 +156,9 @@ enum Dialog {
         url: String,
         focus: bool,
     },
-    /// Asks for the parent PIN before switching mode (`Some`) or removing the lock (`None`).
+    /// Asks for the parent PIN before doing `then`.
     Unlock {
-        then: Option<Mode>,
+        then: Gate,
         pin: String,
         wrong: bool,
         focus: bool,
@@ -168,7 +168,33 @@ enum Dialog {
         confirm: String,
         error: Option<&'static str>,
         focus: bool,
+        /// Start the growing path once the PIN is set.
+        start_path: bool,
     },
+    /// The card shown when a chapter of the growing path opens.
+    Chapter {
+        chapter: Chapter,
+    },
+}
+
+/// What the parent PIN unlocks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Gate {
+    Mode(Mode),
+    RemoveLock,
+    NextChapter,
+    LeavePath,
+}
+
+impl Gate {
+    fn ask(self) -> String {
+        match self {
+            Gate::Mode(m) => format!("Enter the parent PIN to switch to {}.", m.label()),
+            Gate::RemoveLock => "Enter the parent PIN to remove the lock.".into(),
+            Gate::NextChapter => "Enter the parent PIN to unlock the next chapter.".into(),
+            Gate::LeavePath => "Enter the parent PIN to leave the growing path.".into(),
+        }
+    }
 }
 
 pub struct StudioApp {
@@ -240,32 +266,89 @@ impl StudioApp {
             app.open_path(&path);
         }
         app.enforce_mode();
+        // On the growing path, the chapter card says hello at every start.
+        if let Some(chapter) = app.settings.path {
+            app.dialog = Some(Dialog::Chapter { chapter });
+        }
         app
     }
 
     // ---- Modes -------------------------------------------------------------------------
 
+    /// The mode in effect: on the growing path the chapter decides.
+    fn mode(&self) -> Mode {
+        self.settings.path.map_or(self.settings.mode, Chapter::mode)
+    }
+
+    /// Whether the new-tab choices show PDF (as "coming soon" until phase 2).
+    fn pdf_offered(&self) -> bool {
+        match self.settings.path {
+            Some(chapter) => chapter.offers_pdf(),
+            None => matches!(self.mode(), Mode::Studio | Mode::Pdf),
+        }
+    }
+
+    fn ask_pin(&mut self, then: Gate) {
+        self.dialog = Some(Dialog::Unlock {
+            then,
+            pin: String::new(),
+            wrong: false,
+            focus: true,
+        });
+    }
+
+    /// Starts the growing path at chapter 1. A parent PIN must exist first, so
+    /// only a parent can unlock what comes next.
+    fn start_path(&mut self) {
+        if self.settings.path.is_some() {
+            self.status = Some("The growing path is already on".into());
+        } else if !self.settings.locked() {
+            self.dialog = Some(Dialog::SetLock {
+                pin: String::new(),
+                confirm: String::new(),
+                error: None,
+                focus: true,
+                start_path: true,
+            });
+        } else {
+            self.enter_chapter(Chapter::Notepad);
+        }
+    }
+
+    fn enter_chapter(&mut self, chapter: Chapter) {
+        self.settings.path = Some(chapter);
+        self.settings.save();
+        self.enforce_mode();
+        self.dialog = Some(Dialog::Chapter { chapter });
+        self.status = Some(format!(
+            "Chapter {}: {} — {}",
+            chapter.number(),
+            chapter.app(),
+            chapter.title()
+        ));
+    }
+
     /// The kind "New" makes: plain text in Studio and Notepad, documents in Writer.
     fn home_kind(&self) -> TabKind {
-        self.settings.mode.home_kind()
+        self.mode().home_kind()
     }
 
     /// Whether the current mode offers a command at all.
     fn offered(&self, spec: &commands::CommandSpec) -> bool {
-        self.settings.mode.allows_command(spec)
+        self.mode().allows_command(spec)
     }
 
     fn request_mode(&mut self, target: Mode) {
-        if !target.is_available() {
+        if let Some(chapter) = self.settings.path {
+            self.status = Some(format!(
+                "On the growing path (chapter {}). A parent can unlock the next chapter or leave the path.",
+                chapter.number()
+            ));
+        } else if !target.is_available() {
             self.status = Some("PDF tools arrive in the next update".into());
-        } else if target == self.settings.mode {
+        } else if target == self.mode() {
         } else if self.settings.locked() {
-            self.dialog = Some(Dialog::Unlock {
-                then: Some(target),
-                pin: String::new(),
-                wrong: false,
-                focus: true,
-            });
+            self.ask_pin(Gate::Mode(target));
         } else {
             self.set_mode(target);
         }
@@ -281,7 +364,7 @@ impl StudioApp {
     /// Turns tabs of kinds the mode doesn't allow into the mode's kind (as new,
     /// unsaved tabs, so nothing on disk is overwritten), and keeps one tab open.
     fn enforce_mode(&mut self) {
-        let mode = self.settings.mode;
+        let mode = self.mode();
         for i in 0..self.tabs.len() {
             let Some(tab) = self.tabs.get(i) else {
                 continue;
@@ -421,7 +504,7 @@ impl StudioApp {
 
     /// Opens a new tab: in a single-app mode straight away, otherwise ask which kind.
     fn new_tab_flow(&mut self) {
-        if self.settings.mode == Mode::Studio {
+        if self.mode() == Mode::Studio || self.settings.path.is_some() {
             self.open_picker = true;
         } else {
             self.new_tab(self.home_kind());
@@ -495,21 +578,34 @@ impl StudioApp {
             Command::ModeWriter => self.request_mode(Mode::Writer),
             Command::ModePdf => self.request_mode(Mode::Pdf),
             Command::ParentLock => {
-                self.dialog = Some(if self.settings.locked() {
-                    Dialog::Unlock {
-                        then: None,
-                        pin: String::new(),
-                        wrong: false,
-                        focus: true,
-                    }
+                if self.settings.path.is_some() {
+                    self.status = Some(
+                        "The growing path uses the parent PIN; leave the path to remove it".into(),
+                    );
+                } else if self.settings.locked() {
+                    self.ask_pin(Gate::RemoveLock);
                 } else {
-                    Dialog::SetLock {
+                    self.dialog = Some(Dialog::SetLock {
                         pin: String::new(),
                         confirm: String::new(),
                         error: None,
                         focus: true,
-                    }
-                });
+                        start_path: false,
+                    });
+                }
+            }
+            Command::StartPath => self.start_path(),
+            Command::UnlockNextChapter => match self.settings.path {
+                None => self.status = Some("Start the growing path first (View → Path)".into()),
+                Some(c) if c.next().is_none() => {
+                    self.status = Some("Every chapter is already unlocked".into());
+                }
+                Some(_) => self.ask_pin(Gate::NextChapter),
+            },
+            Command::LeavePath => {
+                if self.settings.path.is_some() {
+                    self.ask_pin(Gate::LeavePath);
+                }
             }
             Command::Open => self.open_dialog(),
             Command::Save => {
@@ -610,7 +706,7 @@ impl StudioApp {
     }
 
     fn checked(&self, command: Command) -> Option<bool> {
-        let mode = self.settings.mode;
+        let mode = self.mode();
         match command {
             Command::StatusBar => Some(self.show_status_bar),
             Command::ModeStudio => Some(mode == Mode::Studio),
@@ -675,7 +771,7 @@ impl StudioApp {
         };
         // In a single-app mode every file opens in that app (as a new, unsaved copy,
         // so the original file is never overwritten in another format).
-        let mode = self.settings.mode;
+        let mode = self.mode();
         let kind = match content {
             Content::Text(_) => TabKind::Text,
             Content::Doc(_) => TabKind::Doc,
@@ -975,12 +1071,11 @@ impl StudioApp {
                     }
                     let shortcut = spec.shortcut.map(Shortcut::label).unwrap_or_default();
                     // In a single-app mode "New text file" is just "New".
-                    let label =
-                        if spec.command == Command::NewText && self.settings.mode != Mode::Studio {
-                            "New"
-                        } else {
-                            spec.label
-                        };
+                    let label = if spec.command == Command::NewText && self.mode() != Mode::Studio {
+                        "New"
+                    } else {
+                        spec.label
+                    };
                     let mut button = egui::Button::new(label).shortcut_text(shortcut);
                     if let Some(on) = self.checked(spec.command) {
                         button = button.selected(on);
@@ -1014,13 +1109,20 @@ impl StudioApp {
                 ),
             })
             .collect();
-        let mode = self.settings.mode;
+        let mode = self.mode();
+        let path = self.settings.path;
         let offer = chrome::Offer {
-            ask: mode == Mode::Studio,
+            ask: mode == Mode::Studio || path.is_some(),
             home: self.home_kind(),
             text: mode.allows(TabKind::Text),
             doc: mode.allows(TabKind::Doc),
-            pdf: matches!(mode, Mode::Studio | Mode::Pdf),
+            pdf: self.pdf_offered(),
+            doc_locked: path
+                .filter(|c| !c.allows(TabKind::Doc))
+                .map(|_| Chapter::Writer.number()),
+            pdf_locked: path
+                .filter(|c| !c.offers_pdf())
+                .map(|_| Chapter::Pdf.number()),
         };
         let closed: Vec<String> = self.closed.iter().map(|(t, _)| t.clone()).collect();
         let open_picker = std::mem::take(&mut self.open_picker);
@@ -1048,6 +1150,11 @@ impl StudioApp {
                     self.status = Some("PDF tabs arrive in the next update".into());
                 }
                 chrome::Event::Reopen(i) => self.reopen(i),
+                chrome::Event::Locked(n) => {
+                    self.status = Some(format!(
+                        "That opens in Chapter {n}. Ask a parent to unlock it (top right → Path)."
+                    ));
+                }
             }
         }
     }
@@ -1124,9 +1231,51 @@ impl StudioApp {
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 // The mode switch: all together, or one app at a time.
-                let mode = self.settings.mode;
+                let mode = self.mode();
                 let lock = if self.settings.locked() { " 🔒" } else { "" };
-                ui.menu_button(format!("◧ {}{lock} ▾", mode.short()), |ui| {
+                let path = self.settings.path;
+                let button = match path {
+                    Some(c) => format!("📖 Chapter {}: {} ▾", c.number(), c.app()),
+                    None => format!("◧ {}{lock} ▾", mode.short()),
+                };
+                ui.menu_button(button, |ui| {
+                    // On the growing path the chapters replace the modes.
+                    if let Some(current) = path {
+                        ui.label(RichText::new("The growing path").strong());
+                        for c in Chapter::ALL {
+                            let mark = if c < current {
+                                "✔"
+                            } else if c == current {
+                                "★"
+                            } else {
+                                "🔒"
+                            };
+                            let text =
+                                format!("{mark}  {}. {} — {}", c.number(), c.app(), c.title());
+                            ui.add_enabled(
+                                c <= current,
+                                egui::Button::new(text).selected(c == current),
+                            );
+                        }
+                        ui.separator();
+                        if let Some(next) = current.next()
+                            && ui
+                                .button(format!(
+                                    "🔑 Unlock Chapter {}: {}…",
+                                    next.number(),
+                                    next.app()
+                                ))
+                                .clicked()
+                        {
+                            clicked = Some(Command::UnlockNextChapter);
+                            ui.close_menu();
+                        }
+                        if ui.button("🚪 Leave the growing path…").clicked() {
+                            clicked = Some(Command::LeavePath);
+                            ui.close_menu();
+                        }
+                        return;
+                    }
                     for (m, c) in [
                         (Mode::Studio, Command::ModeStudio),
                         (Mode::Notepad, Command::ModeNotepad),
@@ -1159,9 +1308,17 @@ impl StudioApp {
                         clicked = Some(Command::ParentLock);
                         ui.close_menu();
                     }
+                    if ui
+                        .button("📖 Start the growing path…")
+                        .on_hover_text("Notepad first; a parent unlocks the Writer, then PDF")
+                        .clicked()
+                    {
+                        clicked = Some(Command::StartPath);
+                        ui.close_menu();
+                    }
                 })
                 .response
-                .on_hover_text("Use all apps together, or just one (e.g. Writer only for a child)");
+                .on_hover_text("Use all apps together, just one, or the growing path for a child");
 
                 // Search every command, like the search box of a word processor.
                 let search = ui.add(
@@ -1222,11 +1379,11 @@ impl StudioApp {
     fn ribbon_tabs(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 16.0;
-            if !ribbon::shows(self.ribbon_tab, self.settings.mode) {
+            if !ribbon::shows(self.ribbon_tab, self.mode()) {
                 self.ribbon_tab = 1;
             }
             for (i, name) in ribbon::TABS.iter().enumerate() {
-                if !ribbon::shows(i, self.settings.mode) {
+                if !ribbon::shows(i, self.mode()) {
                     continue;
                 }
                 let on = self.ribbon_tab == i && !self.ribbon_collapsed;
@@ -1283,7 +1440,7 @@ impl StudioApp {
     fn ribbon_body(&mut self, ui: &mut egui::Ui) -> Option<Act> {
         let tab = self.ribbon_tab;
         let mut state = ribbon::State {
-            mode: self.settings.mode,
+            mode: self.mode(),
             ruler: self.settings.ruler,
             status_bar: self.show_status_bar,
             ..Default::default()
@@ -1507,12 +1664,13 @@ impl StudioApp {
 
     fn dialogs(&mut self, ctx: &egui::Context) -> Option<Command> {
         let kind = self.kind();
-        let mode = self.settings.mode;
+        let mode = self.mode();
         let pin_hash = self.settings.pin;
         let mut run = None;
         let mut close = false;
         let mut link: Option<Option<String>> = None;
-        let mut unlocked: Option<Option<Mode>> = None;
+        let mut unlocked: Option<Gate> = None;
+        let mut path_after_pin = false;
         let mut new_pin: Option<u64> = None;
         match self.dialog.as_mut() {
             None => return None,
@@ -1587,10 +1745,7 @@ impl StudioApp {
                     .collapsible(false)
                     .resizable(false)
                     .show(ctx, |ui| {
-                        ui.label(match then {
-                            Some(m) => format!("Enter the parent PIN to switch to {}.", m.label()),
-                            None => "Enter the parent PIN to remove the lock.".to_owned(),
-                        });
+                        ui.label(then.ask());
                         let edit = ui.add(
                             egui::TextEdit::singleline(pin)
                                 .password(true)
@@ -1631,16 +1786,24 @@ impl StudioApp {
                 confirm,
                 error,
                 focus,
+                start_path,
             }) => {
+                let start_path = *start_path;
                 egui::Window::new("Parent lock")
                     .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
                     .collapsible(false)
                     .resizable(false)
                     .show(ctx, |ui| {
-                        ui.label(format!(
-                            "Lock HarshPad in its current mode ({}).\nChanging the mode will then need this PIN.",
-                            mode.label()
-                        ));
+                        if start_path {
+                            ui.label(
+                                "The growing path starts with the Notepad.\nChoose a parent PIN: only it can unlock the next chapter.",
+                            );
+                        } else {
+                            ui.label(format!(
+                                "Lock HarshPad in its current mode ({}).\nChanging the mode will then need this PIN.",
+                                mode.label()
+                            ));
+                        }
                         ui.small("The lock keeps the app in one mode; it isn't a password for your files.");
                         egui::Grid::new("pin-grid").num_columns(2).show(ui, |ui| {
                             ui.label("New PIN (4–8 digits)");
@@ -1664,11 +1827,94 @@ impl StudioApp {
                                     *error = Some("The two PINs don't match.");
                                 } else {
                                     new_pin = Some(modes::hash_pin(pin));
+                                    path_after_pin = start_path;
                                 }
                             }
                             if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                                 close = true;
                             }
+                        });
+                    });
+            }
+            Some(Dialog::Chapter { chapter }) => {
+                let chapter = *chapter;
+                egui::Window::new("The growing path")
+                    .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .title_bar(false)
+                    .show(ctx, |ui| {
+                        ui.set_width(420.0);
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(8.0);
+                            let icon = match chapter {
+                                Chapter::Notepad => "📄",
+                                Chapter::Writer => "📝",
+                                Chapter::Pdf => "📕",
+                            };
+                            ui.label(RichText::new(icon).size(44.0));
+                            ui.label(
+                                RichText::new(format!("Chapter {}", chapter.number()))
+                                    .size(13.0)
+                                    .color(ACCENT),
+                            );
+                            ui.label(RichText::new(chapter.title()).size(24.0).strong());
+                            ui.label(
+                                RichText::new(format!("The {} is yours", chapter.app()))
+                                    .size(14.0)
+                                    .weak(),
+                            );
+                            ui.add_space(10.0);
+                            ui.label(RichText::new(chapter.story()).size(14.0));
+                            ui.add_space(14.0);
+                            // The path so far: done, here, still locked.
+                            ui.horizontal(|ui| {
+                                let w = 3.0 * 120.0;
+                                ui.add_space((ui.available_width() - w).max(0.0) / 2.0);
+                                for c in Chapter::ALL {
+                                    let (mark, colour) = if c < chapter {
+                                        ("✔", Color32::from_rgb(60, 170, 90))
+                                    } else if c == chapter {
+                                        ("★", ACCENT)
+                                    } else {
+                                        ("🔒", ui.visuals().weak_text_color())
+                                    };
+                                    ui.allocate_ui(vec2(120.0, 40.0), |ui| {
+                                        ui.vertical_centered(|ui| {
+                                            ui.label(RichText::new(mark).size(18.0).color(colour));
+                                            ui.label(
+                                                RichText::new(format!(
+                                                    "{}. {}",
+                                                    c.number(),
+                                                    c.app()
+                                                ))
+                                                .size(12.0)
+                                                .color(colour),
+                                            );
+                                        });
+                                    });
+                                }
+                            });
+                            ui.add_space(12.0);
+                            if ui
+                                .add(
+                                    egui::Button::new(RichText::new("Let's go").size(15.0))
+                                        .min_size(vec2(140.0, 32.0)),
+                                )
+                                .clicked()
+                                || ui.input(|i| {
+                                    i.key_pressed(egui::Key::Enter)
+                                        || i.key_pressed(egui::Key::Escape)
+                                })
+                            {
+                                close = true;
+                            }
+                            ui.add_space(6.0);
+                            ui.label(
+                                RichText::new("HarshPad is dedicated to Harshal Pathak")
+                                    .size(11.0)
+                                    .weak(),
+                            );
                         });
                     });
             }
@@ -1750,27 +1996,7 @@ impl StudioApp {
                     });
             }
         }
-        if let Some(target) = unlocked {
-            close = true;
-            match target {
-                Some(m) => self.set_mode(m),
-                None => {
-                    self.settings.pin = None;
-                    self.settings.save();
-                    self.status = Some("Parent lock removed".into());
-                }
-            }
-        }
-        if let Some(hash) = new_pin {
-            self.settings.pin = Some(hash);
-            self.settings.save();
-            self.status = Some(format!("Locked in {} mode", mode.short()));
-            close = true;
-        }
-        if let Some(url) = link {
-            if let Some(d) = self.doc_tab() {
-                d.set_link(url.filter(|u| !u.is_empty()));
-            }
+        if unlocked.is_some() || new_pin.is_some() || link.is_some() {
             close = true;
         }
         if close {
@@ -1778,6 +2004,41 @@ impl StudioApp {
             if let Some(t) = self.tab() {
                 t.focus(ctx);
             }
+        }
+        // Actions run after closing, since some open the next dialog (a chapter card).
+        match unlocked {
+            Some(Gate::Mode(m)) => self.set_mode(m),
+            Some(Gate::RemoveLock) => {
+                self.settings.pin = None;
+                self.settings.save();
+                self.status = Some("Parent lock removed".into());
+            }
+            Some(Gate::NextChapter) => {
+                if let Some(next) = self.settings.path.and_then(Chapter::next) {
+                    self.enter_chapter(next);
+                }
+            }
+            Some(Gate::LeavePath) => {
+                self.settings.path = None;
+                self.settings.save();
+                self.enforce_mode();
+                self.status = Some("Left the growing path; every mode is available again".into());
+            }
+            None => {}
+        }
+        if let Some(hash) = new_pin {
+            self.settings.pin = Some(hash);
+            self.settings.save();
+            if path_after_pin {
+                self.enter_chapter(Chapter::Notepad);
+            } else {
+                self.status = Some(format!("Locked in {} mode", mode.short()));
+            }
+        }
+        if let Some(url) = link
+            && let Some(d) = self.doc_tab()
+        {
+            d.set_link(url.filter(|u| !u.is_empty()));
         }
         run
     }
@@ -1985,7 +2246,7 @@ fn show_about() {
     MessageDialog::new()
         .set_title(APP_NAME)
         .set_description(format!(
-            "{APP_NAME} {}\n\nPlain text and rich documents in one fast app, written in Rust.\n\
+            "{APP_NAME} {}\n\nDedicated to Harshal Pathak, who grows up with it:\nfirst the Notepad, then the Writer, then PDF.\n\nPlain text and rich documents in one fast app, written in Rust.\n\
              Tabs · .docx · Markdown · Find & Replace · crash recovery\n\n\
              Ctrl+Shift+P opens the command palette.",
             env!("CARGO_PKG_VERSION")

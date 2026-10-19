@@ -33,17 +33,25 @@ pub struct Offer {
     pub text: bool,
     pub doc: bool,
     pub pdf: bool,
+    /// On the growing path: the chapter that unlocks documents / PDF.
+    pub doc_locked: Option<u8>,
+    pub pdf_locked: Option<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Select(usize),
     Close(usize),
-    Move { from: usize, to: usize },
+    Move {
+        from: usize,
+        to: usize,
+    },
     New(TabKind),
     Open,
     PdfSoon,
     Reopen(usize),
+    /// A choice the growing path hasn't unlocked yet (its chapter).
+    Locked(u8),
 }
 
 fn macos() -> bool {
@@ -61,48 +69,61 @@ pub fn bar_colour(ui: &egui::Ui) -> Color32 {
 /// The 3–4 choices for a new tab, shared by the + picker and the ⌄ menu.
 fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     // Each choice is a card: big icon, bold name, grey description, shortcut.
-    let mut pick =
-        |ui: &mut egui::Ui, icon: &str, title: &str, detail: &str, key: &str, event: Event| {
-            let (rect, response) = ui.allocate_exact_size(vec2(340.0, 50.0), Sense::click());
-            let visuals = ui.visuals().clone();
-            if response.hovered() {
-                ui.painter()
-                    .rect_filled(rect, 6.0, visuals.widgets.hovered.weak_bg_fill);
-            }
-            let painter = ui.painter();
-            painter.text(
-                pos2(rect.left() + 22.0, rect.center().y),
-                Align2::CENTER_CENTER,
-                icon,
-                FontId::proportional(22.0),
-                visuals.text_color(),
-            );
-            painter.text(
-                pos2(rect.left() + 46.0, rect.top() + 16.0),
-                Align2::LEFT_CENTER,
-                title,
-                FontId::new(14.0, egui::FontFamily::Name("bold".into())),
-                visuals.strong_text_color(),
-            );
-            painter.text(
-                pos2(rect.left() + 46.0, rect.top() + 35.0),
-                Align2::LEFT_CENTER,
-                detail,
-                FontId::proportional(12.0),
-                visuals.weak_text_color(),
-            );
-            painter.text(
-                pos2(rect.right() - 10.0, rect.top() + 16.0),
-                Align2::RIGHT_CENTER,
-                key,
-                FontId::proportional(11.5),
-                visuals.weak_text_color(),
-            );
-            if response.on_hover_cursor(CursorIcon::PointingHand).clicked() {
-                events.push(event);
-                ui.memory_mut(|m| m.close_popup());
-            }
-        };
+    let mut pick = |ui: &mut egui::Ui,
+                    icon: &str,
+                    title: &str,
+                    detail: &str,
+                    key: &str,
+                    event: Event,
+                    dim: bool| {
+        let (rect, response) = ui.allocate_exact_size(vec2(340.0, 50.0), Sense::click());
+        let visuals = ui.visuals().clone();
+        if response.hovered() {
+            ui.painter()
+                .rect_filled(rect, 6.0, visuals.widgets.hovered.weak_bg_fill);
+        }
+        let painter = ui.painter();
+        painter.text(
+            pos2(rect.left() + 22.0, rect.center().y),
+            Align2::CENTER_CENTER,
+            icon,
+            FontId::proportional(22.0),
+            if dim {
+                visuals.weak_text_color()
+            } else {
+                visuals.text_color()
+            },
+        );
+        painter.text(
+            pos2(rect.left() + 46.0, rect.top() + 16.0),
+            Align2::LEFT_CENTER,
+            title,
+            FontId::new(14.0, egui::FontFamily::Name("bold".into())),
+            if dim {
+                visuals.weak_text_color()
+            } else {
+                visuals.strong_text_color()
+            },
+        );
+        painter.text(
+            pos2(rect.left() + 46.0, rect.top() + 35.0),
+            Align2::LEFT_CENTER,
+            detail,
+            FontId::proportional(12.0),
+            visuals.weak_text_color(),
+        );
+        painter.text(
+            pos2(rect.right() - 10.0, rect.top() + 16.0),
+            Align2::RIGHT_CENTER,
+            key,
+            FontId::proportional(11.5),
+            visuals.weak_text_color(),
+        );
+        if response.on_hover_cursor(CursorIcon::PointingHand).clicked() {
+            events.push(event);
+            ui.memory_mut(|m| m.close_popup());
+        }
+    };
     if offer.text {
         pick(
             ui,
@@ -111,6 +132,7 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
             "Plain text, like a notepad",
             "Ctrl+N",
             Event::New(TabKind::Text),
+            false,
         );
     }
     if offer.doc {
@@ -121,6 +143,17 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
             "Formatted writing · .docx, Markdown",
             "Ctrl+Shift+N",
             Event::New(TabKind::Doc),
+            false,
+        );
+    } else if let Some(n) = offer.doc_locked {
+        pick(
+            ui,
+            "🔒",
+            "Document",
+            &format!("Unlocks in Chapter {n}: Writer"),
+            "",
+            Event::Locked(n),
+            true,
         );
     }
     if offer.pdf {
@@ -131,6 +164,17 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
             "Read, organize and sign · coming soon",
             "",
             Event::PdfSoon,
+            false,
+        );
+    } else if let Some(n) = offer.pdf_locked {
+        pick(
+            ui,
+            "🔒",
+            "PDF",
+            &format!("Unlocks in Chapter {n}: PDF"),
+            "",
+            Event::Locked(n),
+            true,
         );
     }
     ui.separator();
@@ -141,6 +185,7 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
         "Text, documents and more",
         "Ctrl+O",
         Event::Open,
+        false,
     );
 }
 

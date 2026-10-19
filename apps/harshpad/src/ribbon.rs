@@ -3,7 +3,7 @@
 
 use eframe::egui::{self, Align, Color32, Layout, RichText, Sense, Stroke, vec2};
 use harshpad_core::commands::Command;
-use harshpad_core::modes::Mode;
+use harshpad_core::modes::{Chapter, Mode};
 use harshpad_rich::{Align as TextAlign, Flag, ParaStyle, Paragraph, Rgb};
 
 use crate::doc_tab::DocTab;
@@ -53,6 +53,7 @@ pub struct State {
     pub read_only: bool,
     pub word_wrap: bool,
     pub mode: Mode,
+    pub path: Option<Chapter>,
 }
 
 const ACCENT: Color32 = Color32::from_rgb(30, 110, 210);
@@ -185,7 +186,9 @@ pub fn body(ui: &mut egui::Ui, tab: usize, s: &State, doc: Option<&mut DocTab>) 
     // Labels stay on one line; a narrow window scrolls the ribbon instead.
     ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
     // A scrollbar of its own under the groups, never on top of their names.
-    ui.spacing_mut().scroll.floating = false;
+    ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
+    ui.spacing_mut().scroll.bar_width = 4.0;
+    ui.spacing_mut().scroll.bar_inner_margin = 2.0;
     egui::ScrollArea::horizontal()
         .id_salt("ribbon-body")
         .show(ui, |ui| {
@@ -542,8 +545,18 @@ pub fn body(ui: &mut egui::Ui, tab: usize, s: &State, doc: Option<&mut DocTab>) 
                                     set(Act::Cmd(c));
                                 }
                             }
-                            if big(ui, "🔒", "Parent\nLock", true, false, false) {
+                            if big(ui, "🔒", "Parent\nLock", s.path.is_none(), false, false) {
                                 set(Act::Cmd(Command::ParentLock));
+                            }
+                            let (label, command) = match s.path {
+                                Some(c) if c.next().is_some() => {
+                                    ("Unlock Next\nChapter", Command::UnlockNextChapter)
+                                }
+                                Some(_) => ("Leave\nPath", Command::LeavePath),
+                                None => ("Growing\nPath", Command::StartPath),
+                            };
+                            if big(ui, "📖", label, true, s.path.is_some(), false) {
+                                set(Act::Cmd(command));
                             }
                         });
                         group(ui, "Window", |ui| {
@@ -840,7 +853,7 @@ fn home(ui: &mut egui::Ui, s: &State, doc: Option<&mut DocTab>, set: &mut dyn Fn
                 };
                 let on = s.para.style == style;
                 let (rect, response) =
-                    ui.allocate_exact_size(vec2(62.0, BODY_H - 6.0), Sense::click());
+                    ui.allocate_exact_size(vec2(56.0, BODY_H - 6.0), Sense::click());
                 let response = response.on_hover_text(style.label());
                 let fill = if on {
                     ui.visuals().selection.bg_fill
