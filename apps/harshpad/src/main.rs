@@ -43,6 +43,8 @@ fn main() -> eframe::Result {
         viewport = viewport.with_icon(icon);
     }
 
+    // Changed below on Windows and macOS only.
+    #[allow(unused_mut)]
     let mut options = eframe::NativeOptions {
         viewport,
         ..Default::default()
