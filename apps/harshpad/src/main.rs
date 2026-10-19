@@ -10,6 +10,7 @@ mod recovery;
 mod ribbon;
 mod settings;
 mod text_tab;
+mod writer_tab;
 
 use std::path::PathBuf;
 

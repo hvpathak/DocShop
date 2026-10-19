@@ -12,6 +12,9 @@ repository = "https://github.com/hvpathak/HarshPad"
 harshpad-core = { path = "crates/core" }
 harshpad-rich = { path = "crates/rich" }
 harshpad-layout = { path = "crates/layout" }
+# The Writer is WordCraft (MIT OR Apache-2.0), pinned; `get their update` bumps this rev.
+wordcraft-engine = { git = "https://github.com/storytold/wordcraft", rev = "117aea31a8e61bd3e306e9210800cdc42897e3c1" }
+wordcraft-ui-egui = { git = "https://github.com/storytold/wordcraft", rev = "117aea31a8e61bd3e306e9210800cdc42897e3c1" }
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "links"] }
 rfd = "0.17"
 
@@ -40,3 +43,7 @@ debug = false
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# WordCraft's PDF writer needs its patched krilla (same pin as WordCraft's own workspace).
+[patch.crates-io]
+krilla = { git = "https://github.com/storytold/craft-libs", rev = "c3487320b2d1de657b860b3c8abb44e1f2b32bd8" }

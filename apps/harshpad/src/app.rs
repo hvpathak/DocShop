@@ -24,17 +24,24 @@ use crate::recovery::{Recovery, Saved};
 use crate::ribbon::{self, Act};
 use crate::settings::Settings;
 use crate::text_tab::{Step, TextTab};
+use crate::writer_tab::WriterTab;
 
 pub const APP_NAME: &str = "HarshPad";
 const TEXT_SIZE: f32 = 15.0;
 const ZOOM_STEP: f32 = 1.1;
 /// Documents opened from disk larger than this are refused politely.
+/// Files the WordCraft editor opens (Writer tabs).
+const WRITER_FILES: [&str; 10] = [
+    "docx", "docm", "dotx", "dotm", "doc", "dot", "rtf", "odt", "html", "md",
+];
 const MAX_OPEN_BYTES: u64 = 64 * 1024 * 1024;
 const ACCENT: Color32 = Color32::from_rgb(30, 110, 210);
 
 enum Content {
     Text(Box<TextTab>),
     Doc(Box<DocTab>),
+    /// A document in the WordCraft editor.
+    Writer(Box<WriterTab>),
 }
 
 /// A toggle switch, like the AutoSave switch of a word processor.
@@ -82,7 +89,7 @@ impl Tab {
     fn kind(&self) -> TabKind {
         match self.content {
             Content::Text(_) => TabKind::Text,
-            Content::Doc(_) => TabKind::Doc,
+            Content::Doc(_) | Content::Writer(_) => TabKind::Doc,
         }
     }
 
@@ -90,6 +97,7 @@ impl Tab {
         match &self.content {
             Content::Text(t) => t.title(),
             Content::Doc(d) => d.title(),
+            Content::Writer(w) => w.title(),
         }
     }
 
@@ -97,6 +105,7 @@ impl Tab {
         match &self.content {
             Content::Text(t) => t.path(),
             Content::Doc(d) => d.path.as_deref(),
+            Content::Writer(w) => w.path(),
         }
     }
 
@@ -104,6 +113,7 @@ impl Tab {
         match &self.content {
             Content::Text(t) => t.is_dirty(),
             Content::Doc(d) => d.is_dirty(),
+            Content::Writer(w) => w.is_dirty(),
         }
     }
 
@@ -111,6 +121,7 @@ impl Tab {
         match &self.content {
             Content::Text(t) => t.is_pristine(),
             Content::Doc(d) => d.is_pristine(),
+            Content::Writer(w) => w.is_pristine(),
         }
     }
 
@@ -118,6 +129,8 @@ impl Tab {
         match &self.content {
             Content::Text(t) => t.focus(ctx),
             Content::Doc(d) => d.focus(ctx),
+            // WordCraft keeps its own focus.
+            Content::Writer(_) => {}
         }
     }
 
@@ -125,6 +138,8 @@ impl Tab {
         let (kind, content) = match &self.content {
             Content::Text(t) => ("text", t.text().to_owned()),
             Content::Doc(d) => ("doc", String::from_utf8(d.doc.to_json().ok()?).ok()?),
+            // WordCraft keeps its own recovery copies.
+            Content::Writer(_) => return None,
         };
         Some(Saved {
             kind: kind.into(),
@@ -446,14 +461,14 @@ impl StudioApp {
     fn text_tab(&mut self) -> Option<&mut TextTab> {
         match &mut self.tab_mut()?.content {
             Content::Text(t) => Some(t),
-            Content::Doc(_) => None,
+            Content::Doc(_) | Content::Writer(_) => None,
         }
     }
 
     fn doc_tab(&mut self) -> Option<&mut DocTab> {
         match &mut self.tab_mut()?.content {
             Content::Doc(d) => Some(d),
-            Content::Text(_) => None,
+            Content::Text(_) | Content::Writer(_) => None,
         }
     }
 
@@ -477,7 +492,8 @@ impl StudioApp {
         let id = self.next_id + 1;
         let content = match kind {
             TabKind::Text => Content::Text(Box::new(TextTab::new(Document::new(), id))),
-            TabKind::Doc => Content::Doc(Box::new(DocTab::new(RichDoc::new(), None, None, id))),
+            // New documents open in the WordCraft editor.
+            TabKind::Doc => Content::Writer(Box::new(WriterTab::new())),
         };
         let id = self.id();
         self.tabs.push(Tab { id, content });
@@ -651,7 +667,8 @@ impl StudioApp {
                             d.redo()
                         }
                     }
-                    None => false,
+                    // WordCraft handles its own undo keys and buttons.
+                    Some(Content::Writer(_)) | None => false,
                 };
                 if !done {
                     self.status = Some(
@@ -674,7 +691,7 @@ impl StudioApp {
                 let count = match self.tab_mut().map(|t| &mut t.content) {
                     Some(Content::Text(t)) => t.replace_all(&options),
                     Some(Content::Doc(d)) => d.replace_all(&options),
-                    None => 0,
+                    Some(Content::Writer(_)) | None => 0,
                 };
                 self.status = Some(format!("Replaced {count} occurrence(s)"));
             }
@@ -762,35 +779,50 @@ impl StudioApp {
             return;
         }
         let id = self.next_id + 1;
-        let content = match RichFormat::from_path(path) {
-            Some(format) => match read_limited(path)
-                .and_then(|b| harshpad_rich::decode(&b, format).map_err(io::Error::other))
-            {
-                Ok(doc) => Content::Doc(Box::new(DocTab::new(
-                    doc,
-                    Some(path.to_path_buf()),
-                    Some(format),
-                    id,
-                ))),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => Content::Doc(Box::new(
-                    DocTab::new(RichDoc::new(), Some(path.to_path_buf()), Some(format), id),
-                )),
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        let content = if WRITER_FILES.contains(&ext.as_str()) {
+            match WriterTab::open(path) {
+                Ok(w) => Content::Writer(Box::new(w)),
                 Err(e) => return show_error(&format!("Could not open {}:\n{e}", path.display())),
-            },
-            None => match Document::open(path) {
-                Ok(doc) => Content::Text(Box::new(TextTab::new(doc, id))),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                    Content::Text(Box::new(TextTab::new(Document::new_at(path), id)))
-                }
-                Err(e) => return show_error(&format!("Could not open {}:\n{e}", path.display())),
-            },
+            }
+        } else {
+            match RichFormat::from_path(path) {
+                Some(format) => match read_limited(path)
+                    .and_then(|b| harshpad_rich::decode(&b, format).map_err(io::Error::other))
+                {
+                    Ok(doc) => Content::Doc(Box::new(DocTab::new(
+                        doc,
+                        Some(path.to_path_buf()),
+                        Some(format),
+                        id,
+                    ))),
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => Content::Doc(Box::new(
+                        DocTab::new(RichDoc::new(), Some(path.to_path_buf()), Some(format), id),
+                    )),
+                    Err(e) => {
+                        return show_error(&format!("Could not open {}:\n{e}", path.display()));
+                    }
+                },
+                None => match Document::open(path) {
+                    Ok(doc) => Content::Text(Box::new(TextTab::new(doc, id))),
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                        Content::Text(Box::new(TextTab::new(Document::new_at(path), id)))
+                    }
+                    Err(e) => {
+                        return show_error(&format!("Could not open {}:\n{e}", path.display()));
+                    }
+                },
+            }
         };
         // In a single-app mode every file opens in that app (as a new, unsaved copy,
         // so the original file is never overwritten in another format).
         let mode = self.mode();
         let kind = match content {
             Content::Text(_) => TabKind::Text,
-            Content::Doc(_) => TabKind::Doc,
+            Content::Doc(_) | Content::Writer(_) => TabKind::Doc,
         };
         let content = if mode.allows(kind) {
             content
@@ -819,6 +851,7 @@ impl StudioApp {
                 (Some(path), Some(format)) => write_doc(d, path, format),
                 _ => return self.save_as(index),
             },
+            Content::Writer(w) => w.run("file.save"),
             Content::Text(_) => return self.save_as(index),
         };
         self.report_save(result)
@@ -829,6 +862,7 @@ impl StudioApp {
             return false;
         };
         let result = match &mut tab.content {
+            Content::Writer(w) => w.run("file.saveAs"),
             Content::Text(t) => {
                 let name = if t.path().is_some() {
                     t.title()
@@ -906,7 +940,11 @@ impl StudioApp {
             .set_buttons(MessageButtons::YesNoCancel)
             .show();
         match answer {
-            MessageDialogResult::Yes => self.save(index),
+            // A save that needs a file name finishes in the Writer's own dialog; the tab
+            // stays open until the document is really saved.
+            MessageDialogResult::Yes => {
+                self.save(index) && !self.tabs.get(index).is_some_and(Tab::is_dirty)
+            }
             MessageDialogResult::No => true,
             _ => false,
         }
@@ -965,7 +1003,7 @@ impl StudioApp {
         let found = match self.tab_mut().map(|t| &mut t.content) {
             Some(Content::Text(t)) => t.search(ctx, &options, step),
             Some(Content::Doc(d)) => d.search(&options, step),
-            None => false,
+            Some(Content::Writer(_)) | None => false,
         };
         if !found {
             self.status = Some(format!("Cannot find \"{}\"", options.needle));
@@ -976,7 +1014,7 @@ impl StudioApp {
         match self.tab_mut().map(|t| &mut t.content) {
             Some(Content::Text(t)) => t.search_changed(),
             Some(Content::Doc(d)) => d.search_changed(),
-            None => {}
+            Some(Content::Writer(_)) | None => {}
         }
     }
 
@@ -1045,7 +1083,12 @@ impl StudioApp {
             .filter_map(|s| s.shortcut.map(|k| (s.command, s.menu, k)))
             .collect();
         bound.sort_by_key(|(_, _, k)| Reverse(k.modifier_count()));
+        // In a WordCraft tab only the tab-level keys are ours; WordCraft handles the rest.
+        let writer = matches!(self.tab().map(|t| &t.content), Some(Content::Writer(_)));
         for (command, menu, shortcut) in bound {
+            if writer && !tab_level(command) {
+                continue;
+            }
             let global = matches!(menu, Some(Menu::File | Menu::View))
                 || matches!(
                     command,
@@ -1479,7 +1522,7 @@ impl StudioApp {
                 state.word_wrap = t.word_wrap;
                 None
             }
-            None => None,
+            Some(Content::Writer(_)) | None => None,
         };
         ribbon::body(ui, tab, &state, doc)
     }
@@ -1497,7 +1540,7 @@ impl StudioApp {
             Act::SelectAll => match self.tab_mut().map(|t| &mut t.content) {
                 Some(Content::Text(t)) => t.select_all(ctx),
                 Some(Content::Doc(d)) => d.select_all(),
-                None => {}
+                Some(Content::Writer(_)) | None => {}
             },
             Act::InsertText(text) => self.insert(ctx, &text),
             Act::InsertDate => {
@@ -1509,7 +1552,7 @@ impl StudioApp {
                 let rows = match self.tab().map(|t| &t.content) {
                     Some(Content::Text(t)) => t.stats(),
                     Some(Content::Doc(d)) => d.stats(),
-                    None => Vec::new(),
+                    Some(Content::Writer(_)) | None => Vec::new(),
                 };
                 self.dialog = Some(Dialog::WordCount { rows });
             }
@@ -1555,7 +1598,7 @@ impl StudioApp {
                     d.insert_text(text);
                 }
             }
-            None => {}
+            Some(Content::Writer(_)) | None => {}
         }
     }
 
@@ -1580,7 +1623,8 @@ impl StudioApp {
                     (Some(path), Some(format)) => write_doc(d, path, format),
                     _ => continue,
                 },
-                Content::Text(_) => continue,
+                // WordCraft saves through its own AutoSave.
+                Content::Writer(_) | Content::Text(_) => continue,
             };
         }
         self.write_recovery();
@@ -1655,6 +1699,8 @@ impl StudioApp {
                 let (l, c) = d.line_and_column();
                 (l, c, d.word_count(), d.format_label())
             }
+            // WordCraft draws its own status bar.
+            Content::Writer(_) => return,
         };
         ui.horizontal(|ui| {
             if let Some(message) = &self.status {
@@ -2204,37 +2250,40 @@ impl eframe::App for StudioApp {
 
         let mut clicked = None;
         let mut act = None;
+        // A WordCraft tab brings its own title bar, ribbon and status bar.
+        let writer = matches!(self.tab().map(|t| &t.content), Some(Content::Writer(_)));
         egui::Panel::top("titlebar")
             .exact_size(chrome::BAR_H)
             .frame(egui::Frame::NONE)
             .show_separator_line(false)
             .show(ui, |ui| self.tab_bar(ui));
-        egui::Panel::top("quickbar")
-            .show_separator_line(false)
-            .frame(
-                egui::Frame::side_top_panel(&ctx.global_style())
-                    .inner_margin(egui::Margin::symmetric(10, 5)),
-            )
-            .show(ui, |ui| clicked = self.quick_bar(ui));
-        egui::Panel::top("ribbon")
-            .frame(
-                egui::Frame::side_top_panel(&ctx.global_style())
-                    .inner_margin(egui::Margin::symmetric(8, 2)),
-            )
-            .show(ui, |ui| {
-                self.ribbon_tabs(ui);
-                if !self.ribbon_collapsed {
-                    ui.add_space(4.0);
-                    act = self.ribbon_body(ui);
-                    ui.add_space(2.0);
-                }
-            });
-        if self.find.open {
-            egui::Panel::top("find")
-                .show(ui, |ui| clicked = clicked.or(self.find_bar(ui)));
-        }
-        if self.show_status_bar {
-            egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui));
+        if !writer {
+            egui::Panel::top("quickbar")
+                .show_separator_line(false)
+                .frame(
+                    egui::Frame::side_top_panel(&ctx.global_style())
+                        .inner_margin(egui::Margin::symmetric(10, 5)),
+                )
+                .show(ui, |ui| clicked = self.quick_bar(ui));
+            egui::Panel::top("ribbon")
+                .frame(
+                    egui::Frame::side_top_panel(&ctx.global_style())
+                        .inner_margin(egui::Margin::symmetric(8, 2)),
+                )
+                .show(ui, |ui| {
+                    self.ribbon_tabs(ui);
+                    if !self.ribbon_collapsed {
+                        ui.add_space(4.0);
+                        act = self.ribbon_body(ui);
+                        ui.add_space(2.0);
+                    }
+                });
+            if self.find.open {
+                egui::Panel::top("find").show(ui, |ui| clicked = clicked.or(self.find_bar(ui)));
+            }
+            if self.show_status_bar {
+                egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui));
+            }
         }
         let kind = self.kind();
         let backdrop = if kind == TabKind::Doc {
@@ -2248,15 +2297,19 @@ impl eframe::App for StudioApp {
         };
         let zoom = self.zoom;
         let ruler = self.settings.ruler;
-        egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(&ctx.global_style()).fill(backdrop))
-            .show(ui, |ui| {
-                match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
-                    Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
-                    Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),
-                    None => {}
-                }
-            });
+        let frame = if writer {
+            egui::Frame::NONE
+        } else {
+            egui::Frame::central_panel(&ctx.global_style()).fill(backdrop)
+        };
+        egui::CentralPanel::default().frame(frame).show(ui, |ui| {
+            match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
+                Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
+                Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),
+                Some(Content::Writer(w)) => w.ui(ui),
+                None => {}
+            }
+        });
         if let Some(c) = self.dialogs(ctx) {
             clicked = clicked.or(Some(c));
         }
@@ -2268,6 +2321,30 @@ impl eframe::App for StudioApp {
         }
         chrome::border(ctx);
     }
+}
+
+/// Commands that belong to the tab strip, so they work in every kind of tab.
+fn tab_level(command: Command) -> bool {
+    matches!(
+        command,
+        Command::NewTab
+            | Command::NewText
+            | Command::NewDocument
+            | Command::CloseTab
+            | Command::ReopenClosedTab
+            | Command::NextTab
+            | Command::PreviousTab
+            | Command::Tab1
+            | Command::Tab2
+            | Command::Tab3
+            | Command::Tab4
+            | Command::Tab5
+            | Command::Tab6
+            | Command::Tab7
+            | Command::Tab8
+            | Command::LastTab
+            | Command::CommandPalette
+    )
 }
 
 /// Consumes the shortcut if it was pressed this frame.
