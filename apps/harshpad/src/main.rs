@@ -1,5 +1,5 @@
-// Hide the console window in release builds.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// A window app: no console window behind it on Windows, in any build.
+#![windows_subsystem = "windows"]
 
 mod app;
 mod chrome;

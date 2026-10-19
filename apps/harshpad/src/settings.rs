@@ -18,6 +18,9 @@ pub struct Settings {
     /// The growing path's current chapter; `None` when the path is off.
     #[serde(default)]
     pub path: Option<Chapter>,
+    /// The welcome card shows at every start until `Don't show this again`.
+    #[serde(default)]
+    pub hide_welcome: bool,
 }
 
 impl Default for Settings {
@@ -28,6 +31,7 @@ impl Default for Settings {
             autosave: false,
             ruler: true,
             path: None,
+            hide_welcome: false,
         }
     }
 }

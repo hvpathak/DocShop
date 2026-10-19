@@ -174,6 +174,11 @@ enum Dialog {
     /// The card shown when a chapter of the growing path opens.
     Chapter {
         chapter: Chapter,
+        dont_show: bool,
+    },
+    /// The start card: the three apps, and where to switch between them.
+    Welcome {
+        dont_show: bool,
     },
 }
 
@@ -267,8 +272,16 @@ impl StudioApp {
         }
         app.enforce_mode();
         // On the growing path, the chapter card says hello at every start.
-        if let Some(chapter) = app.settings.path {
-            app.dialog = Some(Dialog::Chapter { chapter });
+        // Until "Don't show this again" is ticked, a card says hello at every start:
+        // the chapter card on the growing path, otherwise the welcome card.
+        if !app.settings.hide_welcome {
+            app.dialog = Some(match app.settings.path {
+                Some(chapter) => Dialog::Chapter {
+                    chapter,
+                    dont_show: false,
+                },
+                None => Dialog::Welcome { dont_show: false },
+            });
         }
         app
     }
@@ -319,7 +332,10 @@ impl StudioApp {
         self.settings.path = Some(chapter);
         self.settings.save();
         self.enforce_mode();
-        self.dialog = Some(Dialog::Chapter { chapter });
+        self.dialog = Some(Dialog::Chapter {
+            chapter,
+            dont_show: false,
+        });
         self.status = Some(format!(
             "Chapter {}: {} — {}",
             chapter.number(),
@@ -1836,7 +1852,7 @@ impl StudioApp {
                         });
                     });
             }
-            Some(Dialog::Chapter { chapter }) => {
+            Some(Dialog::Chapter { chapter, dont_show }) => {
                 let chapter = *chapter;
                 egui::Window::new("The growing path")
                     .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
@@ -1895,7 +1911,9 @@ impl StudioApp {
                                     });
                                 }
                             });
-                            ui.add_space(12.0);
+                            ui.add_space(8.0);
+                            ui.checkbox(dont_show, "Don't show this again");
+                            ui.add_space(8.0);
                             if ui
                                 .add(
                                     egui::Button::new(RichText::new("Let's go").size(15.0))
@@ -1915,6 +1933,69 @@ impl StudioApp {
                                     .size(11.0)
                                     .weak(),
                             );
+                        });
+                    });
+            }
+            Some(Dialog::Welcome { dont_show }) => {
+                egui::Window::new("Welcome")
+                    .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+                    .collapsible(false)
+                    .resizable(false)
+                    .title_bar(false)
+                    .show(ctx, |ui| {
+                        ui.set_width(460.0);
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(8.0);
+                            ui.label(RichText::new("Welcome to HarshPad").size(24.0).strong());
+                            ui.label(RichText::new("Three apps in one window, opened one by one like chapters").weak());
+                            ui.add_space(14.0);
+                            ui.horizontal(|ui| {
+                                let w = 3.0 * 145.0;
+                                ui.add_space((ui.available_width() - w).max(0.0) / 2.0);
+                                for (n, icon, name, what, kind) in [
+                                    (1, "📄", "Notepad", "Plain text, fast", Some(TabKind::Text)),
+                                    (2, "📝", "Writer", "Documents with style", Some(TabKind::Doc)),
+                                    (3, "📕", "PDF", "Coming soon", None),
+                                ] {
+                                    let on = kind.is_some_and(|k| mode.allows(k));
+                                    let colour = if on { ACCENT } else { ui.visuals().weak_text_color() };
+                                    ui.allocate_ui(vec2(145.0, 96.0), |ui| {
+                                        ui.vertical_centered(|ui| {
+                                            ui.label(RichText::new(icon).size(30.0));
+                                            ui.label(RichText::new(format!("Chapter {n}")).size(11.0).color(colour));
+                                            ui.label(RichText::new(name).size(15.0).strong());
+                                            ui.label(RichText::new(what).size(11.5).weak());
+                                            let state = match (on, kind) {
+                                                (true, _) => "✔ open now",
+                                                (false, Some(_)) => "off in this mode",
+                                                (false, None) => "on its way",
+                                            };
+                                            ui.label(RichText::new(state).size(11.0).color(colour));
+                                        });
+                                    });
+                                }
+                            });
+                            ui.add_space(12.0);
+                            ui.label(format!("You're in {} mode.", mode.label()));
+                            ui.label(
+                                RichText::new(
+                                    "Switch apps from ◧ at the top right. Notepad or Writer missing? Choose All together (Studio).",
+                                )
+                                .size(12.5)
+                                .weak(),
+                            );
+                            ui.add_space(10.0);
+                            ui.checkbox(dont_show, "Don't show this again");
+                            ui.add_space(8.0);
+                            if ui
+                                .add(egui::Button::new(RichText::new("Let's go").size(15.0)).min_size(vec2(140.0, 32.0)))
+                                .clicked()
+                                || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape))
+                            {
+                                close = true;
+                            }
+                            ui.add_space(6.0);
+                            ui.label(RichText::new("HarshPad is dedicated to Harshal Pathak").size(11.0).weak());
                         });
                     });
             }
@@ -1998,6 +2079,20 @@ impl StudioApp {
         }
         if unlocked.is_some() || new_pin.is_some() || link.is_some() {
             close = true;
+        }
+        if close
+            && matches!(
+                self.dialog,
+                Some(
+                    Dialog::Chapter {
+                        dont_show: true,
+                        ..
+                    } | Dialog::Welcome { dont_show: true }
+                )
+            )
+        {
+            self.settings.hide_welcome = true;
+            self.settings.save();
         }
         if close {
             self.dialog = None;
