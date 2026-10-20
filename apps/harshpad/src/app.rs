@@ -409,7 +409,7 @@ impl StudioApp {
     }
 
     /// Turns tabs of kinds the mode doesn't allow into the mode's kind (as new,
-    /// unsaved tabs, so nothing on disk is overwritten), and keeps one tab open.
+    /// unsaved tabs, so nothing on disk is overwritten).
     fn enforce_mode(&mut self) {
         let mode = self.mode();
         // Writer Studio and PDF Studio tabs can't be turned into another kind: they close
@@ -438,9 +438,6 @@ impl StudioApp {
                 tab.content = convert(old, mode.home_kind(), id, true);
                 tab.id = id;
             }
-        }
-        if self.tabs.is_empty() {
-            self.new_tab(self.home_kind());
         }
         self.active = self.active.min(self.tabs.len().saturating_sub(1));
     }
@@ -544,10 +541,8 @@ impl StudioApp {
                 self.active = self.active.saturating_sub(1);
             }
         }
-        if self.tabs.is_empty() {
-            self.new_tab(self.home_kind());
-        }
-        self.active = self.active.min(self.tabs.len() - 1);
+        // Closing the last tab leaves an almost blank window asking which app to open.
+        self.active = self.active.min(self.tabs.len().saturating_sub(1));
     }
 
     fn reopen(&mut self, index: usize) {
@@ -1137,12 +1132,15 @@ impl StudioApp {
             .collect();
         bound.sort_by_key(|(_, _, k)| Reverse(k.modifier_count()));
         // In a WordCraft tab only the tab-level keys are ours; WordCraft handles the rest.
+        // No tab at all (the start page) is treated the same way: only tab-level keys and bars.
         let writer = matches!(
             self.tab().map(|t| &t.content),
-            Some(Content::Writer(_) | Content::Pdf(_))
+            Some(Content::Writer(_) | Content::Pdf(_)) | None
         );
         for (command, menu, shortcut) in bound {
-            if writer && !tab_level(command) {
+            // On the start page nothing else handles Ctrl+O.
+            let start_open = self.tabs.is_empty() && command == Command::Open;
+            if writer && !tab_level(command) && !start_open {
                 continue;
             }
             let global = matches!(menu, Some(Menu::File | Menu::View))
@@ -1225,20 +1223,7 @@ impl StudioApp {
                 ),
             })
             .collect();
-        let mode = self.mode();
-        let path = self.settings.path;
-        // On the growing path the chapter decides; otherwise the mode does.
-        let choice = |kind: TabKind, unlocks: Chapter| match path {
-            Some(c) if !c.allows(kind) => chrome::Choice::Locked(unlocks.number()),
-            Some(_) => chrome::Choice::Open,
-            None if mode.allows(kind) => chrome::Choice::Open,
-            None => chrome::Choice::Off,
-        };
-        let offer = chrome::Offer {
-            text: choice(TabKind::Text, Chapter::Notepad),
-            doc: choice(TabKind::Doc, Chapter::Writer),
-            pdf: choice(TabKind::Pdf, Chapter::Pdf),
-        };
+        let offer = self.offer();
         let closed: Vec<String> = self.closed.iter().map(|(t, _)| t.clone()).collect();
         let open_picker = std::mem::take(&mut self.open_picker);
         // Room for the mode switch, left of the ⌄ menu.
@@ -1258,6 +1243,36 @@ impl StudioApp {
             &mut self.tab_search,
             &closed,
         );
+        self.handle_chrome(events);
+        let slot = chrome::mode_slot(ui.max_rect(), reserve);
+        ui.scope_builder(
+            egui::UiBuilder::new()
+                .max_rect(slot)
+                .layout(Layout::right_to_left(Align::Center)),
+            |ui| self.mode_menu(ui),
+        )
+        .inner
+    }
+
+    /// Which of the three apps can be opened now: the growing path decides, otherwise the mode.
+    fn offer(&self) -> chrome::Offer {
+        let mode = self.mode();
+        let path = self.settings.path;
+        let choice = |kind: TabKind, unlocks: Chapter| match path {
+            Some(c) if !c.allows(kind) => chrome::Choice::Locked(unlocks.number()),
+            Some(_) => chrome::Choice::Open,
+            None if mode.allows(kind) => chrome::Choice::Open,
+            None => chrome::Choice::Off,
+        };
+        chrome::Offer {
+            text: choice(TabKind::Text, Chapter::Notepad),
+            doc: choice(TabKind::Doc, Chapter::Writer),
+            pdf: choice(TabKind::Pdf, Chapter::Pdf),
+        }
+    }
+
+    /// What was done in the tab bar or on the empty-window page.
+    fn handle_chrome(&mut self, events: Vec<chrome::Event>) {
         for event in events {
             match event {
                 chrome::Event::Select(i) => {
@@ -1281,14 +1296,6 @@ impl StudioApp {
                 }
             }
         }
-        let slot = chrome::mode_slot(ui.max_rect(), reserve);
-        ui.scope_builder(
-            egui::UiBuilder::new()
-                .max_rect(slot)
-                .layout(Layout::right_to_left(Align::Center)),
-            |ui| self.mode_menu(ui),
-        )
-        .inner
     }
 
     /// The mode switch's label: the mode (◧ Studio ▾) or, on the growing path, the chapter.
@@ -2370,9 +2377,10 @@ impl eframe::App for StudioApp {
         let mut clicked = None;
         let mut act = None;
         // A WordCraft tab brings its own title bar, ribbon and status bar.
+        // No tab at all (the start page) is treated the same way: only tab-level keys and bars.
         let writer = matches!(
             self.tab().map(|t| &t.content),
-            Some(Content::Writer(_) | Content::Pdf(_))
+            Some(Content::Writer(_) | Content::Pdf(_)) | None
         );
         egui::Panel::top("titlebar")
             .exact_size(chrome::BAR_H)
@@ -2386,7 +2394,8 @@ impl eframe::App for StudioApp {
                     egui::Frame::side_top_panel(&ctx.global_style())
                         .inner_margin(egui::Margin::symmetric(10, 5)),
                 )
-                .show(ui, |ui| clicked = self.quick_bar(ui));
+                // `or`: a mode picked in the title bar this frame must not be lost.
+                .show(ui, |ui| clicked = clicked.or(self.quick_bar(ui)));
             egui::Panel::top("ribbon")
                 .frame(
                     egui::Frame::side_top_panel(&ctx.global_style())
@@ -2419,11 +2428,15 @@ impl eframe::App for StudioApp {
         };
         let zoom = self.zoom;
         let ruler = self.settings.ruler;
-        let panel_frame = if writer {
+        let panel_frame = if self.tabs.is_empty() {
+            egui::Frame::central_panel(&ctx.global_style())
+        } else if writer {
             egui::Frame::NONE
         } else {
             egui::Frame::central_panel(&ctx.global_style()).fill(backdrop)
         };
+        let offer = self.offer();
+        let mut start = Vec::new();
         egui::CentralPanel::default()
             .frame(panel_frame)
             .show(ui, |ui| {
@@ -2432,9 +2445,10 @@ impl eframe::App for StudioApp {
                     Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),
                     Some(Content::Writer(w)) => w.ui(ui, frame),
                     Some(Content::Pdf(p)) => p.ui(ui, frame),
-                    None => {}
+                    None => start = chrome::start_page(ui, &offer),
                 }
             });
+        self.handle_chrome(start);
         if let Some(c) = self.dialogs(ctx) {
             clicked = clicked.or(Some(c));
         }

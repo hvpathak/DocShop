@@ -163,6 +163,37 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     }
 }
 
+/// The window with no tabs left: an almost blank page asking which app to open, with the
+/// same three cards as the + menu, and "Open a file…".
+pub fn start_page(ui: &mut egui::Ui, offer: &Offer) -> Vec<Event> {
+    let mut events = Vec::new();
+    let height = 4.0 * 50.0 + 70.0;
+    ui.vertical_centered(|ui| {
+        ui.add_space(((ui.available_height() - height) / 2.0 - 30.0).max(16.0));
+        ui.label(
+            RichText::new("What would you like to open?")
+                .size(20.0)
+                .strong(),
+        );
+        ui.add_space(4.0);
+        ui.label(RichText::new("Pick an app for the new tab").weak());
+        ui.add_space(14.0);
+        new_tab_choices(ui, offer, &mut events);
+        ui.add_space(6.0);
+        if card(
+            ui,
+            AppIcon::Folder,
+            "Open a file…",
+            "Text, documents and PDFs",
+            "Ctrl+O",
+            false,
+        ) {
+            events.push(Event::Open);
+        }
+    });
+    events
+}
+
 /// Where the caller's own control goes (the mode switch): `reserve` wide, just left of
 /// the ⌄ menu.
 pub fn mode_slot(rect: Rect, reserve: f32) -> Rect {
