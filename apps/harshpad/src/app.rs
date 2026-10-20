@@ -1207,7 +1207,7 @@ impl StudioApp {
     }
 
     /// Browser-style tabs in the title bar.
-    fn tab_bar(&mut self, ui: &mut egui::Ui) {
+    fn tab_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
         let infos: Vec<chrome::TabInfo> = self
             .tabs
             .iter()
@@ -1241,8 +1241,16 @@ impl StudioApp {
         };
         let closed: Vec<String> = self.closed.iter().map(|(t, _)| t.clone()).collect();
         let open_picker = std::mem::take(&mut self.open_picker);
+        // Room for the mode switch, left of the ⌄ menu.
+        let font = egui::TextStyle::Button.resolve(ui.style());
+        let reserve = ui.fonts_mut(|f| {
+            f.layout_no_wrap(self.mode_label(), font, Color32::WHITE)
+                .size()
+                .x
+        }) + 24.0;
         let events = chrome::title_bar(
             ui,
+            reserve,
             &infos,
             self.active,
             &offer,
@@ -1273,9 +1281,113 @@ impl StudioApp {
                 }
             }
         }
+        let slot = chrome::mode_slot(ui.max_rect(), reserve);
+        ui.scope_builder(
+            egui::UiBuilder::new()
+                .max_rect(slot)
+                .layout(Layout::right_to_left(Align::Center)),
+            |ui| self.mode_menu(ui),
+        )
+        .inner
     }
 
-    /// AutoSave · Save · Undo · Redo · ⋯ menus | title | command search · mode.
+    /// The mode switch's label: the mode (◧ Studio ▾) or, on the growing path, the chapter.
+    fn mode_label(&self) -> String {
+        let lock = if self.settings.locked() { " 🔒" } else { "" };
+        match self.settings.path {
+            Some(c) => format!("📖 Chapter {}: {} ▾", c.number(), c.app()),
+            None => format!("◧ {}{lock} ▾", self.mode().short()),
+        }
+    }
+
+    /// The mode switch, in the title bar so every tab shows it: all apps together, one app
+    /// at a time, the parent lock, or the growing path.
+    fn mode_menu(&mut self, ui: &mut egui::Ui) -> Option<Command> {
+        let mut clicked = None;
+        let mode = self.mode();
+        let path = self.settings.path;
+        let button = self.mode_label();
+        ui.menu_button(button, |ui| {
+            // On the growing path the chapters replace the modes.
+            if let Some(current) = path {
+                ui.label(RichText::new("The growing path").strong());
+                for c in Chapter::ALL {
+                    let mark = if c < current {
+                        "✔"
+                    } else if c == current {
+                        "★"
+                    } else {
+                        "🔒"
+                    };
+                    let text = format!("{mark}  {}. {} — {}", c.number(), c.app(), c.title());
+                    ui.add_enabled(c <= current, egui::Button::new(text).selected(c == current));
+                }
+                ui.separator();
+                if let Some(next) = current.next()
+                    && ui
+                        .button(format!(
+                            "🔑 Unlock Chapter {}: {}…",
+                            next.number(),
+                            next.app()
+                        ))
+                        .clicked()
+                {
+                    clicked = Some(Command::UnlockNextChapter);
+                    ui.close();
+                }
+                if ui.button("🚪 Leave the growing path…").clicked() {
+                    clicked = Some(Command::LeavePath);
+                    ui.close();
+                }
+                return;
+            }
+            for (m, c) in [
+                (Mode::Studio, Command::ModeStudio),
+                (Mode::Notepad, Command::ModeNotepad),
+                (Mode::Writer, Command::ModeWriter),
+                (Mode::Pdf, Command::ModePdf),
+            ] {
+                let label = if m.is_available() {
+                    m.label().to_owned()
+                } else {
+                    format!("{} (coming soon)", m.label())
+                };
+                if ui
+                    .add_enabled(
+                        m.is_available(),
+                        egui::Button::new(label).selected(m == mode),
+                    )
+                    .clicked()
+                {
+                    clicked = Some(c);
+                    ui.close();
+                }
+            }
+            ui.separator();
+            let lock_label = if self.settings.locked() {
+                "🔒 Remove parent lock…"
+            } else {
+                "🔓 Parent lock…"
+            };
+            if ui.button(lock_label).clicked() {
+                clicked = Some(Command::ParentLock);
+                ui.close();
+            }
+            if ui
+                .button("📖 Start the growing path…")
+                .on_hover_text("Notepad first; a parent unlocks the Writer, then PDF")
+                .clicked()
+            {
+                clicked = Some(Command::StartPath);
+                ui.close();
+            }
+        })
+        .response
+        .on_hover_text("Use all apps together, just one, or the growing path for a child");
+        clicked
+    }
+
+    /// AutoSave · Save · Undo · Redo · ⋯ menus | title | command search.
     fn quick_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
         let mut clicked = None;
         let tip = |c: Command| {
@@ -1346,96 +1458,6 @@ impl StudioApp {
             }
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                // The mode switch: all together, or one app at a time.
-                let mode = self.mode();
-                let lock = if self.settings.locked() { " 🔒" } else { "" };
-                let path = self.settings.path;
-                let button = match path {
-                    Some(c) => format!("📖 Chapter {}: {} ▾", c.number(), c.app()),
-                    None => format!("◧ {}{lock} ▾", mode.short()),
-                };
-                ui.menu_button(button, |ui| {
-                    // On the growing path the chapters replace the modes.
-                    if let Some(current) = path {
-                        ui.label(RichText::new("The growing path").strong());
-                        for c in Chapter::ALL {
-                            let mark = if c < current {
-                                "✔"
-                            } else if c == current {
-                                "★"
-                            } else {
-                                "🔒"
-                            };
-                            let text =
-                                format!("{mark}  {}. {} — {}", c.number(), c.app(), c.title());
-                            ui.add_enabled(
-                                c <= current,
-                                egui::Button::new(text).selected(c == current),
-                            );
-                        }
-                        ui.separator();
-                        if let Some(next) = current.next()
-                            && ui
-                                .button(format!(
-                                    "🔑 Unlock Chapter {}: {}…",
-                                    next.number(),
-                                    next.app()
-                                ))
-                                .clicked()
-                        {
-                            clicked = Some(Command::UnlockNextChapter);
-                            ui.close();
-                        }
-                        if ui.button("🚪 Leave the growing path…").clicked() {
-                            clicked = Some(Command::LeavePath);
-                            ui.close();
-                        }
-                        return;
-                    }
-                    for (m, c) in [
-                        (Mode::Studio, Command::ModeStudio),
-                        (Mode::Notepad, Command::ModeNotepad),
-                        (Mode::Writer, Command::ModeWriter),
-                        (Mode::Pdf, Command::ModePdf),
-                    ] {
-                        let label = if m.is_available() {
-                            m.label().to_owned()
-                        } else {
-                            format!("{} (coming soon)", m.label())
-                        };
-                        if ui
-                            .add_enabled(
-                                m.is_available(),
-                                egui::Button::new(label).selected(m == mode),
-                            )
-                            .clicked()
-                        {
-                            clicked = Some(c);
-                            ui.close();
-                        }
-                    }
-                    ui.separator();
-                    let lock_label = if self.settings.locked() {
-                        "🔒 Remove parent lock…"
-                    } else {
-                        "🔓 Parent lock…"
-                    };
-                    if ui.button(lock_label).clicked() {
-                        clicked = Some(Command::ParentLock);
-                        ui.close();
-                    }
-                    if ui
-                        .button("📖 Start the growing path…")
-                        .on_hover_text("Notepad first; a parent unlocks the Writer, then PDF")
-                        .clicked()
-                    {
-                        clicked = Some(Command::StartPath);
-                        ui.close();
-                    }
-                })
-                .response
-                .on_hover_text("Use all apps together, just one, or the growing path for a child");
-
                 // Search every command, like the search box of a word processor.
                 let search = ui.add(
                     egui::TextEdit::singleline(&mut self.command_search)
@@ -1448,6 +1470,7 @@ impl StudioApp {
                     egui::Popup::open_id(ui.ctx(), popup);
                 }
                 let kind = self.kind();
+                let mode = self.mode();
                 let found: Vec<_> = commands::search(&self.command_search)
                     .into_iter()
                     .filter(|s| s.works_in(kind) && mode.allows_command(s))
@@ -2355,7 +2378,7 @@ impl eframe::App for StudioApp {
             .exact_size(chrome::BAR_H)
             .frame(egui::Frame::NONE)
             .show_separator_line(false)
-            .show(ui, |ui| self.tab_bar(ui));
+            .show(ui, |ui| clicked = self.tab_bar(ui));
         if !writer {
             egui::Panel::top("quickbar")
                 .show_separator_line(false)

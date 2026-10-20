@@ -163,10 +163,23 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     }
 }
 
-/// Draws the bar and returns what the user did.
+/// Where the caller's own control goes (the mode switch): `reserve` wide, just left of
+/// the ⌄ menu.
+pub fn mode_slot(rect: Rect, reserve: f32) -> Rect {
+    let controls = if macos() { 0.0 } else { CONTROL_W * 3.0 };
+    let right = rect.right() - controls - MENU_W - 6.0;
+    Rect::from_min_max(
+        pos2(right - reserve, rect.top() + 4.0),
+        pos2(right, rect.bottom()),
+    )
+}
+
+/// Draws the bar and returns what the user did. `reserve` is kept free for [`mode_slot`].
 /// `open_picker` opens the new-tab choices (Ctrl+T); `search` is the ⌄ menu's filter.
+#[allow(clippy::too_many_arguments)]
 pub fn title_bar(
     ui: &mut egui::Ui,
+    reserve: f32,
     tabs: &[TabInfo],
     active: usize,
     offer: &Offer,
@@ -191,7 +204,8 @@ pub fn title_bar(
     painter.rect_filled(rect, 0.0, bar);
     // Decorative flourishes in the empty space before the window buttons: light lines on
     // dark, dark lines on light, faint enough to stay in the background.
-    let art_right = rect.right() - if macos() { 0.0 } else { CONTROL_W * 3.0 } - MENU_W - 12.0;
+    let art_right =
+        rect.right() - if macos() { 0.0 } else { CONTROL_W * 3.0 } - MENU_W - reserve - 12.0;
     let art = Rect::from_min_max(
         pos2(
             (art_right - 560.0).max(rect.left() + rect.width() * 0.45),
@@ -212,7 +226,7 @@ pub fn title_bar(
     let left = rect.left() + if macos() { 78.0 } else { 8.0 };
     let controls = if macos() { 0.0 } else { CONTROL_W * 3.0 };
     let n = tabs.len().max(1) as f32;
-    let room = (rect.right() - controls - MENU_W - PLUS_W - 60.0 - left).max(MIN_TAB_W);
+    let room = (rect.right() - controls - MENU_W - reserve - PLUS_W - 60.0 - left).max(MIN_TAB_W);
     let natural = (room / n).clamp(MIN_TAB_W, MAX_TAB_W);
     // Like a browser: after closing a tab with the mouse, widths hold still until
     // the pointer leaves the strip.
