@@ -7,6 +7,7 @@ mod doc_tab;
 mod fonts;
 mod icons;
 mod page;
+mod pdf_tab;
 mod recovery;
 mod ribbon;
 mod settings;
@@ -20,8 +21,8 @@ use std::path::PathBuf;
 const ICON_PNG: &[u8] = include_bytes!("../../../assets/icon-256.png");
 
 fn main() -> eframe::Result {
-    // `harshpad notes.txt` or `harshpad report.docx` opens that file.
-    let initial_file = std::env::args_os().nth(1).map(PathBuf::from);
+    // `harshpad notes.txt report.docx form.pdf` opens each file in its own tab.
+    let initial_files: Vec<PathBuf> = std::env::args_os().skip(1).map(PathBuf::from).collect();
 
     let mut viewport = eframe::egui::ViewportBuilder::default()
         .with_title(app::APP_NAME)
@@ -72,7 +73,7 @@ fn main() -> eframe::Result {
         options,
         Box::new(move |cc| {
             #[allow(unused_mut)]
-            let mut app = app::StudioApp::new(cc, initial_file);
+            let mut app = app::StudioApp::new(cc, initial_files);
             #[cfg(target_os = "macos")]
             app.connect_finder(finder.connect(&cc.egui_ctx));
             Ok(Box::new(app))

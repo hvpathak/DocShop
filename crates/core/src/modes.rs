@@ -35,9 +35,9 @@ impl Mode {
         }
     }
 
-    /// PDF tabs arrive in the next phase; until then that mode can't be chosen.
+    /// Every mode can be chosen (PDF Studio arrived in v0.7).
     pub fn is_available(self) -> bool {
-        self != Mode::Pdf
+        true
     }
 
     pub fn allows(self, kind: TabKind) -> bool {
@@ -45,7 +45,7 @@ impl Mode {
             Mode::Studio => true,
             Mode::Notepad => kind == TabKind::Text,
             Mode::Writer => kind == TabKind::Doc,
-            Mode::Pdf => false,
+            Mode::Pdf => kind == TabKind::Pdf,
         }
     }
 
@@ -53,6 +53,7 @@ impl Mode {
     pub fn home_kind(self) -> TabKind {
         match self {
             Mode::Writer => TabKind::Doc,
+            Mode::Pdf => TabKind::Pdf,
             _ => TabKind::Text,
         }
     }
@@ -69,6 +70,7 @@ impl Mode {
             _ => {
                 (spec.kinds.text && self.allows(TabKind::Text))
                     || (spec.kinds.doc && self.allows(TabKind::Doc))
+                    || (spec.works_in(TabKind::Pdf) && self.allows(TabKind::Pdf))
             }
         }
     }
@@ -142,6 +144,7 @@ impl Chapter {
         match kind {
             TabKind::Text => true,
             TabKind::Doc => self >= Chapter::Writer,
+            TabKind::Pdf => self >= Chapter::Pdf,
         }
     }
 
@@ -185,7 +188,9 @@ mod tests {
         assert!(Mode::Notepad.allows(TabKind::Text) && !Mode::Notepad.allows(TabKind::Doc));
         assert!(Mode::Writer.allows(TabKind::Doc) && !Mode::Writer.allows(TabKind::Text));
         assert_eq!(Mode::Writer.home_kind(), TabKind::Doc);
-        assert!(!Mode::Pdf.is_available());
+        assert!(Mode::Pdf.is_available());
+        assert!(Mode::Pdf.allows(TabKind::Pdf) && !Mode::Pdf.allows(TabKind::Text));
+        assert_eq!(Mode::Pdf.home_kind(), TabKind::Pdf);
     }
 
     #[test]
@@ -226,6 +231,7 @@ mod tests {
         assert_eq!(seen, [1, 2, 3]);
         assert!(Chapter::Writer.allows(TabKind::Doc) && !Chapter::Writer.offers_pdf());
         assert!(Chapter::Pdf.allows(TabKind::Doc) && Chapter::Pdf.offers_pdf());
+        assert!(Chapter::Pdf.allows(TabKind::Pdf) && !Chapter::Writer.allows(TabKind::Pdf));
         assert!(
             Chapter::ALL
                 .iter()

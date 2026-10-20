@@ -198,35 +198,38 @@ pub fn body(ui: &mut egui::Ui, tab: usize, s: &State, doc: Option<&mut DocTab>) 
                     0 => file(ui, s, &mut set),
                     1 => home(ui, s, doc, &mut set),
                     2 => {
-                        group(ui, "Pages", |ui| {
-                            if big(ui, "📄", "Cover\nPage", d, false, true) {
-                                set(Act::Soon("Cover page"));
-                            }
-                            if big(ui, "⤓", "Page\nBreak", d, false, true) {
-                                set(Act::Soon("Page break"));
-                            }
-                        });
-                        group(ui, "Tables", |ui| {
-                            if big(ui, "▦", "Table", d, false, true) {
-                                set(Act::Soon("Tables"));
-                            }
-                        });
-                        group(ui, "Illustrations", |ui| {
-                            if big(ui, "🖼", "Pictures", d, false, true) {
-                                set(Act::Soon("Pictures"));
-                            }
-                            if big(ui, "◆", "Shapes", d, false, true) {
-                                set(Act::Soon("Shapes"));
-                            }
-                            if big(ui, "📊", "Chart", d, false, true) {
-                                set(Act::Soon("Charts"));
-                            }
-                        });
-                        group(ui, "Links", |ui| {
-                            if big(ui, "🔗", "Link", d, false, false) {
-                                set(Act::Cmd(Command::InsertLink));
-                            }
-                        });
+                        // Pages, tables, pictures and links are for documents; a Notepad tab gets only Text.
+                        if d {
+                            group(ui, "Pages", |ui| {
+                                if big(ui, "📄", "Cover\nPage", d, false, true) {
+                                    set(Act::Soon("Cover page"));
+                                }
+                                if big(ui, "⤓", "Page\nBreak", d, false, true) {
+                                    set(Act::Soon("Page break"));
+                                }
+                            });
+                            group(ui, "Tables", |ui| {
+                                if big(ui, "▦", "Table", d, false, true) {
+                                    set(Act::Soon("Tables"));
+                                }
+                            });
+                            group(ui, "Illustrations", |ui| {
+                                if big(ui, "🖼", "Pictures", d, false, true) {
+                                    set(Act::Soon("Pictures"));
+                                }
+                                if big(ui, "◆", "Shapes", d, false, true) {
+                                    set(Act::Soon("Shapes"));
+                                }
+                                if big(ui, "📊", "Chart", d, false, true) {
+                                    set(Act::Soon("Charts"));
+                                }
+                            });
+                            group(ui, "Links", |ui| {
+                                if big(ui, "🔗", "Link", d, false, false) {
+                                    set(Act::Cmd(Command::InsertLink));
+                                }
+                            });
+                        }
                         group(ui, "Text", |ui| {
                             if big(ui, "📅", "Date &\nTime", true, false, false) {
                                 set(Act::InsertDate);
@@ -493,19 +496,23 @@ pub fn body(ui: &mut egui::Ui, tab: usize, s: &State, doc: Option<&mut DocTab>) 
                         });
                     }
                     9 => {
-                        group(ui, "Views", |ui| {
-                            if big(ui, "📄", "Print\nLayout", d, d, false) {
-                                set(Act::Cmd(Command::ZoomReset));
-                            }
-                            for (icon, label) in [("📖", "Read\nMode"), ("🌐", "Web\nLayout")] {
-                                if big(ui, icon, label, d, false, true) {
-                                    set(Act::Soon("Other views"));
+                        // Page views are document things; a Notepad tab doesn't show them.
+                        if d {
+                            group(ui, "Views", |ui| {
+                                if big(ui, "📄", "Print\nLayout", d, d, false) {
+                                    set(Act::Cmd(Command::ZoomReset));
                                 }
-                            }
-                        });
+                                for (icon, label) in [("📖", "Read\nMode"), ("🌐", "Web\nLayout")]
+                                {
+                                    if big(ui, icon, label, d, false, true) {
+                                        set(Act::Soon("Other views"));
+                                    }
+                                }
+                            });
+                        }
                         group(ui, "Show", |ui| {
                             column(ui, |ui| {
-                                if small(ui, "📏", "Ruler", d, s.ruler, false) {
+                                if d && small(ui, "📏", "Ruler", d, s.ruler, false) {
                                     set(Act::ToggleRuler);
                                 }
                                 if small(ui, "▁", "Status Bar", true, s.status_bar, false) {
@@ -636,16 +643,6 @@ fn file(ui: &mut egui::Ui, s: &State, set: &mut dyn FnMut(Act)) {
             set(Act::Soon("Printing"));
         }
     });
-    if studio {
-        group(ui, "Convert", |ui| {
-            if big(ui, "📝", "Open as\nDocument", !s.doc, false, false) {
-                set(Act::Cmd(Command::ConvertToDocument));
-            }
-            if big(ui, "📄", "Open as\nText", s.doc, false, false) {
-                set(Act::Cmd(Command::ConvertToText));
-            }
-        });
-    }
     group(ui, "Tabs", |ui| {
         if big(ui, "↺", "Reopen\nClosed", true, false, false) {
             set(Act::Cmd(Command::ReopenClosedTab));
@@ -906,13 +903,11 @@ fn text_tools(ui: &mut egui::Ui, s: &State, set: &mut dyn FnMut(Act)) {
         if big(ui, "📅", "Date &\nTime", true, false, false) {
             set(Act::InsertDate);
         }
-        if s.mode == Mode::Studio && big(ui, "📝", "Open as\nDocument", true, false, false) {
-            set(Act::Cmd(Command::ConvertToDocument));
-        }
     });
 }
 
-/// Ribbon tabs each mode shows: Notepad keeps only what plain text uses.
-pub fn shows(tab: usize, mode: Mode) -> bool {
-    mode != Mode::Notepad || matches!(tab, 0 | 1 | 2 | 8 | 9 | 10)
+/// Ribbon tabs a tab shows: a Notepad tab keeps only what plain text uses (File, Home,
+/// Insert, View, Help), never the word-processor tabs.
+pub fn shows(tab: usize, notepad: bool) -> bool {
+    !notepad || matches!(tab, 0 | 1 | 2 | 9 | 10)
 }

@@ -1,0 +1,11 @@
+# The big git dependencies (WordCraft, PdfCraft) fetch faster and more reliably with the system git.
+[net]
+git-fetch-with-cli = true
+
+
+# Patience with slow networks (a stalled download otherwise fails after 30 seconds).
+[http]
+timeout = 300
+low-speed-limit = 1
+multiplexing = false
+

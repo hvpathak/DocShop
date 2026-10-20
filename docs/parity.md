@@ -19,7 +19,7 @@ and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the dist
 |---|---|---|
 | 1 · Notepad | **95%** | `███████████████████░` |
 | 2 · Writer | **100% of WordCraft** | `████████████████████` |
-| 3 · PDF | **0%** (next) | `░░░░░░░░░░░░░░░░░░░░` |
+| 3 · PDF | **100% of PdfCraft** | `████████████████████` |
 
 ## Chapter 1 · Notepad
 
@@ -57,30 +57,16 @@ WordCraft's latest, and HarshPad is rebuilt, tested on all platforms and release
 
 ## Chapter 3 · PDF
 
-Feature counts are the size of each area as listed in PdfCraft's public checklist.
-
-| Area | Features | Score | Plan |
-|---|---|---|---|
-| A · Core model and fidelity | 56 | 0% | Phase 2: open, save, repair, undo |
-| B · View and navigation | 92 | 0% | Phase 2: pages, zoom, thumbnails, find, copy text |
-| C · Content editing | 61 | 0% | Later |
-| D · Organize pages | 76 | 0% | Phase 2: rotate, delete, insert, reorder, merge, split, extract |
-| E · Comments and review | 65 | 0% | Phase 3 |
-| F · Forms | 79 | 0% | Phase 3: fill simple forms |
-| G · Protect, redact, sanitize | 41 | 0% | Later |
-| H · Digital signatures | 45 | 0% | Phase 3: visible signature |
-| I · Scan and OCR | 26 | 0% | Later |
-| J · Create and export | 34 | 0% | Phase 3: Text/Doc → PDF |
-| K · Optimize and standards | 58 | 0% | Later |
-| L · Print | 39 | 0% | Later |
-| M · Accessibility | 61 | 0% | Later |
-| N · Automation and preferences | 75 | 0% | CLI commands alongside every feature |
-| **PDF total** | **808** | **0%** | |
+Since v0.7 every PDF Studio tab **is the PdfCraft editor** (github.com/storytold/pdfcraft, MIT OR
+Apache-2.0), from the `harshpad` branch of [our fork](https://github.com/hvpathak/pdfcraft), with its patched
+PDF renderer, parser and windowing applied the way its own workspace does. So PDF Studio has **100% of
+PdfCraft's features**: all 14 areas of its checklist (viewing, editing, organizing, comments, forms and
+JavaScript, protect and redact, signatures, OCR, create and export, optimize, print, accessibility,
+automation). One PDF per HarshPad tab; its own Home, tabs and Open button step aside, its community links,
+About and update checks are hidden, and Help goes to this project.
 
 ## Order of work
 
-1. **Writer: done** (v0.6, WordCraft inside HarshPad). Left: the agent control channel, Finder
-   open on macOS, and registering HarshPad as the default app for documents.
-2. **Chapter 3 · PDF next:** the PdfCraft editor in PDF tabs, the same way (its patched PDF renderer
-   and parser included), then every PdfCraft area above reaches 100% with it.
-3. New upstream features arrive with each *get their update*.
+1. **Writer Studio: done** (v0.6, WordCraft). **PDF Studio: done** (v0.7, PdfCraft).
+2. Left: the agent control channel and default-app registration for documents and PDFs.
+3. New upstream features arrive with each *get their update* (`scripts/get-their-update.ps1`).

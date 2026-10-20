@@ -5,7 +5,7 @@
 <h1 align="center">HarshPad Studio</h1>
 
 <p align="center">
-  <b>Notepad + Writer Studio + PDF Studio (soon): one suite, one window, browser-style tabs.</b><br>
+  <b>Notepad + Writer Studio + PDF Studio: one suite, one window, browser-style tabs.</b><br>
   Writer Studio is <a href="https://github.com/storytold/wordcraft">WordCraft</a>, built in. Plain text, <code>.docx</code>, <code>.doc</code>, <code>.odt</code>, <code>.rtf</code>, Markdown.<br>
   No installer, no account, no telemetry. Windows, macOS and Linux.
 </p>
@@ -63,43 +63,33 @@ behind the PIN) turns it off.
 
 Where each chapter stands on its way to 100% of the projects we follow: **[Road to 100%](docs/parity.md)**.
 
-## Tabs like your browser, a ribbon like your word processor
+## Three apps, one window, browser-style tabs
 
 <p align="center">
-  <img src="docs/images/new-tab.png" alt="Clicking + next to the tabs opens a menu titled 'Open a new tab as…' with four cards: Text file (plain text, like a notepad, Ctrl+N), Document (formatted writing, .docx and Markdown, Ctrl+Shift+N), PDF (coming soon) and Open a file… (Ctrl+O)" width="100%">
+  <img src="docs/images/new-tab.png" alt="Clicking + next to the tabs opens 'Open a new tab as…' with exactly three cards, each with a colour icon: Notepad (plain text, fast, Ctrl+N), Writer Studio (documents: .docx, .doc, .odt, .rtf, Markdown, Ctrl+Shift+N) and PDF Studio (read, edit, organize, comment and sign PDFs)" width="100%">
 </p>
 
-- **Tabs live in the title bar.** Drag to reorder, middle-click or <kbd>Ctrl+W</kbd> to close, <kbd>Ctrl+Tab</kbd>
-  to cycle, <kbd>Ctrl+1</kbd>…<kbd>Ctrl+8</kbd> to jump, <kbd>Ctrl+9</kbd> for the last tab. A dot marks unsaved work. Titles fade
-  instead of being cut off, and tab widths hold still while you close tabs, so the next × is right under your pointer.
-- **+ asks what you want:** a text file, a document, or a PDF (<kbd>Ctrl+T</kbd>). In a single-app mode it just opens one.
-- **⌄ menu:** new tab as…, search your open tabs, and recently closed tabs. <kbd>Ctrl+Shift+T</kbd> brings the last one back,
-  unsaved text included.
-- **The ribbon:** File · Home · Insert · Draw · Design · Layout · References · Mailings · Review · View · Help, with
-  big and small buttons in named groups. Double-click a tab to fold the ribbon away.
-  Working today: clipboard, fonts and styles gallery, paragraph and alignment, find and replace, links, date and time,
-  symbols, horizontal line, Word Count, Restrict Editing (read-only), ruler, status bar, zoom, modes, parent lock,
-  keyboard shortcuts. Buttons for features still being built are shown greyed out and say **coming soon**.
-- **Quick-access row:** an **AutoSave** switch (named files save themselves every 20 seconds), Save, Undo, Redo, the
-  classic menus under **⋯**, the document name with *Saved* / *Edited*, and a **command search** box.
+- **+ asks which app:** Notepad, Writer Studio or PDF Studio, always those three (<kbd>Ctrl+T</kbd>). One a mode
+  switches off shows greyed out; on Harshal's growing path a locked one says which chapter unlocks it.
+- **Tabs live in the title bar**, each with its app's colour icon. Drag to reorder, middle-click or <kbd>Ctrl+W</kbd> to
+  close, <kbd>Ctrl+Tab</kbd> to cycle, <kbd>Ctrl+1</kbd>…<kbd>Ctrl+8</kbd> to jump. A dot marks unsaved work.
+- **⌄ menu:** the three apps, Open a file…, search your open tabs, and recently closed tabs
+  (<kbd>Ctrl+Shift+T</kbd> brings the last one back, unsaved text included).
+- **Each tab shows only its own app.** A Notepad tab has the Notepad's tools; a Writer Studio tab has the full
+  word-processor ribbon; a PDF Studio tab has the PDF tools. Nothing mixes.
 
 ## One app, four modes
 
 | Mode | What you get |
 |---|---|
-| **All together (Studio)** | Text files and rich documents side by side in tabs, with one-click conversion between them |
+| **All together (Studio)** | Notepad, Writer Studio and PDF Studio side by side in tabs |
 | **Notepad only** | The fast, distraction-free plain-text editor, nothing else |
-| **Writer only** | Just the document writer: perfect for students and kids |
-| **PDF only** | Coming in the next release |
+| **Writer Studio only** | Just the word processor: perfect for students and kids |
+| **PDF Studio only** | Just the PDF tools |
 
-<p align="center">
-  <img src="docs/images/writer-mode.png" alt="Writer-only mode: the mode switch reads Writer, + opens a new document straight away, and the ribbon shows the writing tools above a formatted page" width="100%">
-</p>
-
-Switch from the **◧** button at the top right (or *View → Mode* in the ribbon). A **parent lock** keeps the app in one
-mode behind a 4–8 digit PIN, so a child can use the Writer without wandering into anything else.
-Files of another kind open as a new copy in the current mode, so nothing on disk is ever overwritten
-in a different format.
+Switch from the **◧** button at the top right. A **parent lock** keeps the app in one mode behind a 4–8 digit PIN,
+so a child can use the Writer without wandering into anything else. A file whose app is switched off in the
+current mode says so instead of opening.
 
 ## Writer Studio
 
@@ -115,14 +105,28 @@ charts, SmartArt, equations and drawing, with native open/save dialogs, printing
 crash recovery and your own dictionary and fonts.
 
 It opens .docx, .doc, .rtf, .odt, .html and Markdown, and saves those plus PDF. HarshPad adds
-the browser-style tabs, so a document, a plain-text note and (soon) a PDF sit side by side in one window.
+the browser-style tabs, so a document, a plain-text note and a PDF sit side by side in one window.
 WordCraft is pinned to an exact version on the `harshpad` branch of [our fork](https://github.com/hvpathak/wordcraft),
 which adds HarshPad's touches: Help and Feedback go to this project, no community or account buttons, and a
 ☀/☾ light/dark switch. New WordCraft releases come in with one command, `scripts/get-their-update.ps1`.
+
+## PDF Studio
+
+<p align="center">
+  <img src="docs/images/pdf.png" alt="A PDF Studio tab with a red PDF icon: the PDF tools (All tools, Read, Edit, Convert, E-Sign), a tools list with Export, Fill and Sign, Edit, Create, Combine, Organize pages, Add comments, Scan and OCR, Protect, Redact, Compress, Prepare a form and Add a stamp, the page 'Harshal's Report', and side panels with zoom" width="100%">
+</p>
+
+Every PDF Studio tab is **[PdfCraft](https://github.com/storytold/pdfcraft)**, the open-source PDF editor, running
+inside HarshPad: read with sharp zoom, search and copy text; edit text and images; organize, insert, extract,
+split and combine pages; comment and highlight; fill and sign forms; create, export and compress PDFs; protect,
+redact, OCR and more. Its own tab strip steps aside for HarshPad's tabs (one PDF per tab), it keeps its light/dark
+button, and Help goes to this project. It comes from the `harshpad` branch of
+[our fork](https://github.com/hvpathak/pdfcraft), updated the same way as the Writer.
+
 ## The Notepad
 
 <p align="center">
-  <img src="docs/images/notepad.png" alt="Notepad-only mode: a plain-text shopping list; the ribbon keeps only File, Home, Insert, Review, View and Help, and Home shows just Clipboard, Word Wrap, Date and Time, and Find, Replace, Select All; the status bar reads Ln 1, Col 1, 19 words, 100%, UTF-8, Windows (CRLF)" width="100%">
+  <img src="docs/images/notepad.png" alt="A Notepad tab: a plain-text shopping list; the ribbon has only File, Home, Insert, View and Help, and Home shows just Clipboard, Word Wrap, Date and Time, and Find, Replace, Select All; the AutoSave switch is a grey pill; the status bar reads Ln 1, Col 1, 19 words, 100%, UTF-8, Windows (CRLF)" width="100%">
 </p>
 
 Everything the classic notepad does, with guarantees it never had:
@@ -202,9 +206,8 @@ apps/harshpad-cli  the same engines from the command line
 
 Full area-by-area tracker: **[Road to 100%](docs/parity.md)**.
 
-- **Writer:** done (WordCraft). Next for it: the agent control channel, opening from Finder on macOS.
-- **PDF** (next): the PdfCraft editor in PDF tabs, built in the same way; read with sharp zoom, thumbnails, search, copy text; rotate, delete, reorder, merge, split pages.
-- **Comment & sign:** highlights, notes, ink, signatures; export any document to PDF with page numbers.
+- **Writer Studio:** done (WordCraft). Next: the agent control channel.
+- **PDF Studio:** done (PdfCraft).
 
 Ideas and pull requests are welcome. The house rules: no `unwrap`/`panic`/`unsafe` outside tests,
 and every change comes with a test.
@@ -212,4 +215,5 @@ and every change comes with a test.
 ## License
 
 [MIT](LICENSE). The built-in Writer is WordCraft (MIT OR Apache-2.0); its license texts and NOTICE are in
-[licenses/wordcraft](licenses/wordcraft). HarshPad is an independent project.
+[licenses/wordcraft](licenses/wordcraft). PDF Studio is PdfCraft (MIT OR Apache-2.0); see [licenses/pdfcraft](licenses/pdfcraft).
+HarshPad is an independent project.

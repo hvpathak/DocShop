@@ -20,6 +20,7 @@ use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult, Messag
 use crate::chrome;
 use crate::doc_tab::DocTab;
 use crate::fonts;
+use crate::pdf_tab::PdfTab;
 use crate::recovery::{Recovery, Saved};
 use crate::ribbon::{self, Act};
 use crate::settings::Settings;
@@ -42,6 +43,8 @@ enum Content {
     Doc(Box<DocTab>),
     /// A document in the WordCraft editor.
     Writer(Box<WriterTab>),
+    /// A PDF in the PdfCraft editor.
+    Pdf(Box<PdfTab>),
 }
 
 /// A toggle switch, like the AutoSave switch of a word processor.
@@ -53,30 +56,31 @@ fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
         response.mark_changed();
     }
     let t = ui.ctx().animate_bool_responsive(response.id, *on);
-    let fill = if *on {
-        ACCENT
+    // Clearly visible in both themes: a solid grey track when off, the accent when on.
+    let dark = ui.visuals().dark_mode;
+    let (off_fill, edge) = if dark {
+        (Color32::from_gray(78), Color32::from_gray(120))
     } else {
-        ui.visuals().widgets.inactive.bg_fill
+        (Color32::from_gray(176), Color32::from_gray(120))
     };
+    let fill = if *on { ACCENT } else { off_fill };
     let radius = rect.height() / 2.0;
+    let border = if *on { ACCENT } else { edge };
     ui.painter().rect(
         rect,
         radius,
         fill,
-        egui::Stroke::new(
-            1.0_f32,
-            ui.visuals()
-                .widgets
-                .inactive
-                .fg_stroke
-                .color
-                .gamma_multiply(0.5),
-        ),
+        egui::Stroke::new(1.0_f32, border),
         egui::StrokeKind::Inside,
     );
     let x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), t);
-    ui.painter()
-        .circle_filled(egui::pos2(x, rect.center().y), radius - 3.0, Color32::WHITE);
+    let knob = egui::pos2(x, rect.center().y);
+    ui.painter().circle(
+        knob,
+        radius - 2.5,
+        Color32::WHITE,
+        egui::Stroke::new(1.0_f32, Color32::from_black_alpha(60)),
+    );
     response
 }
 
@@ -90,6 +94,7 @@ impl Tab {
         match self.content {
             Content::Text(_) => TabKind::Text,
             Content::Doc(_) | Content::Writer(_) => TabKind::Doc,
+            Content::Pdf(_) => TabKind::Pdf,
         }
     }
 
@@ -98,6 +103,7 @@ impl Tab {
             Content::Text(t) => t.title(),
             Content::Doc(d) => d.title(),
             Content::Writer(w) => w.title(),
+            Content::Pdf(p) => p.title(),
         }
     }
 
@@ -106,6 +112,7 @@ impl Tab {
             Content::Text(t) => t.path(),
             Content::Doc(d) => d.path.as_deref(),
             Content::Writer(w) => w.path(),
+            Content::Pdf(p) => p.path(),
         }
     }
 
@@ -114,6 +121,7 @@ impl Tab {
             Content::Text(t) => t.is_dirty(),
             Content::Doc(d) => d.is_dirty(),
             Content::Writer(w) => w.is_dirty(),
+            Content::Pdf(p) => p.is_dirty(),
         }
     }
 
@@ -122,6 +130,7 @@ impl Tab {
             Content::Text(t) => t.is_pristine(),
             Content::Doc(d) => d.is_pristine(),
             Content::Writer(w) => w.is_pristine(),
+            Content::Pdf(p) => p.is_pristine(),
         }
     }
 
@@ -129,8 +138,8 @@ impl Tab {
         match &self.content {
             Content::Text(t) => t.focus(ctx),
             Content::Doc(d) => d.focus(ctx),
-            // WordCraft keeps its own focus.
-            Content::Writer(_) => {}
+            // WordCraft and PdfCraft keep their own focus.
+            Content::Writer(_) | Content::Pdf(_) => {}
         }
     }
 
@@ -138,8 +147,8 @@ impl Tab {
         let (kind, content) = match &self.content {
             Content::Text(t) => ("text", t.text().to_owned()),
             Content::Doc(d) => ("doc", String::from_utf8(d.doc.to_json().ok()?).ok()?),
-            // WordCraft keeps its own recovery copies.
-            Content::Writer(_) => return None,
+            // WordCraft and PdfCraft keep their own recovery copies.
+            Content::Writer(_) | Content::Pdf(_) => return None,
         };
         Some(Saved {
             kind: kind.into(),
@@ -250,7 +259,7 @@ pub struct StudioApp {
 }
 
 impl StudioApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, initial_file: Option<PathBuf>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, initial_files: Vec<PathBuf>) -> Self {
         // Ctrl +/- zooms the page, not the whole interface.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
         fonts::install(&cc.egui_ctx);
@@ -290,7 +299,7 @@ impl StudioApp {
             }
             app.status = Some(format!("Recovered {n} unsaved tab(s) from last time"));
         }
-        if let Some(path) = initial_file {
+        for path in initial_files {
             app.open_path(&path);
         }
         app.enforce_mode();
@@ -320,14 +329,6 @@ impl StudioApp {
     /// The mode in effect: on the growing path the chapter decides.
     fn mode(&self) -> Mode {
         self.settings.path.map_or(self.settings.mode, Chapter::mode)
-    }
-
-    /// Whether the new-tab choices show PDF (as "coming soon" until phase 2).
-    fn pdf_offered(&self) -> bool {
-        match self.settings.path {
-            Some(chapter) => chapter.offers_pdf(),
-            None => matches!(self.mode(), Mode::Studio | Mode::Pdf),
-        }
     }
 
     fn ask_pin(&mut self, then: Gate) {
@@ -389,8 +390,6 @@ impl StudioApp {
                 "On the growing path (chapter {}). A parent can unlock the next chapter or leave the path.",
                 chapter.number()
             ));
-        } else if !target.is_available() {
-            self.status = Some("PDF tools arrive in the next update".into());
         } else if target == self.mode() {
         } else if self.settings.locked() {
             self.ask_pin(Gate::Mode(target));
@@ -410,6 +409,16 @@ impl StudioApp {
     /// unsaved tabs, so nothing on disk is overwritten), and keeps one tab open.
     fn enforce_mode(&mut self) {
         let mode = self.mode();
+        // Writer Studio and PDF Studio tabs can't be turned into another kind: they close
+        // (asking to save first) when their app is switched off.
+        for i in (0..self.tabs.len()).rev() {
+            let studio = self.tabs.get(i).is_some_and(|t| {
+                matches!(t.content, Content::Writer(_) | Content::Pdf(_)) && !mode.allows(t.kind())
+            });
+            if studio && self.confirm_discard(i) && i < self.tabs.len() {
+                self.tabs.remove(i);
+            }
+        }
         for i in 0..self.tabs.len() {
             let Some(tab) = self.tabs.get(i) else {
                 continue;
@@ -475,14 +484,14 @@ impl StudioApp {
     fn text_tab(&mut self) -> Option<&mut TextTab> {
         match &mut self.tab_mut()?.content {
             Content::Text(t) => Some(t),
-            Content::Doc(_) | Content::Writer(_) => None,
+            Content::Doc(_) | Content::Writer(_) | Content::Pdf(_) => None,
         }
     }
 
     fn doc_tab(&mut self) -> Option<&mut DocTab> {
         match &mut self.tab_mut()?.content {
             Content::Doc(d) => Some(d),
-            Content::Text(_) | Content::Writer(_) => None,
+            Content::Text(_) | Content::Writer(_) | Content::Pdf(_) => None,
         }
     }
 
@@ -508,6 +517,7 @@ impl StudioApp {
             TabKind::Text => Content::Text(Box::new(TextTab::new(Document::new(), id))),
             // New documents open in the WordCraft editor.
             TabKind::Doc => Content::Writer(Box::new(WriterTab::new(&self.ctx))),
+            TabKind::Pdf => Content::Pdf(Box::new(PdfTab::new())),
         };
         let id = self.id();
         self.tabs.push(Tab { id, content });
@@ -550,11 +560,8 @@ impl StudioApp {
 
     /// Opens a new tab: in a single-app mode straight away, otherwise ask which kind.
     fn new_tab_flow(&mut self) {
-        if self.mode() == Mode::Studio || self.settings.path.is_some() {
-            self.open_picker = true;
-        } else {
-            self.new_tab(self.home_kind());
-        }
+        // Always ask which of the three apps to open.
+        self.open_picker = true;
     }
 
     fn move_tab(&mut self, from: usize, to: usize) {
@@ -682,7 +689,7 @@ impl StudioApp {
                         }
                     }
                     // WordCraft handles its own undo keys and buttons.
-                    Some(Content::Writer(_)) | None => false,
+                    Some(Content::Writer(_) | Content::Pdf(_)) | None => false,
                 };
                 if !done {
                     self.status = Some(
@@ -705,7 +712,7 @@ impl StudioApp {
                 let count = match self.tab_mut().map(|t| &mut t.content) {
                     Some(Content::Text(t)) => t.replace_all(&options),
                     Some(Content::Doc(d)) => d.replace_all(&options),
-                    Some(Content::Writer(_)) | None => 0,
+                    Some(Content::Writer(_) | Content::Pdf(_)) | None => 0,
                 };
                 self.status = Some(format!("Replaced {count} occurrence(s)"));
             }
@@ -774,12 +781,14 @@ impl StudioApp {
     fn open_dialog(&mut self) {
         let picked = FileDialog::new()
             .add_filter(
-                "Text and documents",
+                "Text, documents and PDFs",
                 &[
-                    "txt", "md", "markdown", "docx", "hpdoc", "log", "csv", "json", "ini", "xml",
+                    "txt", "md", "markdown", "docx", "doc", "odt", "rtf", "html", "pdf", "hpdoc",
+                    "log", "csv", "json", "ini", "xml",
                 ],
             )
-            .add_filter("Documents", &["docx", "md", "hpdoc"])
+            .add_filter("Documents", &["docx", "doc", "odt", "rtf", "md", "hpdoc"])
+            .add_filter("PDF", &["pdf"])
             .add_filter("All files", &["*"])
             .pick_files();
         for path in picked.unwrap_or_default() {
@@ -797,7 +806,31 @@ impl StudioApp {
             .extension()
             .map(|e| e.to_string_lossy().to_lowercase())
             .unwrap_or_default();
-        let content = if WRITER_FILES.contains(&ext.as_str()) {
+        // Writer Studio and PDF Studio files can't become a copy of another kind:
+        // in a mode where their app is off, say so instead of opening them.
+        let studio = if ext == "pdf" {
+            Some((TabKind::Pdf, "PDF Studio"))
+        } else if WRITER_FILES.contains(&ext.as_str()) {
+            Some((TabKind::Doc, "Writer Studio"))
+        } else {
+            None
+        };
+        if let Some((kind, app)) = studio
+            && !self.mode().allows(kind)
+        {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            self.status = Some(format!(
+                "{name} opens in {app}, which is off in {} mode",
+                self.mode().short()
+            ));
+            return;
+        }
+        let content = if ext == "pdf" {
+            Content::Pdf(Box::new(PdfTab::open(path)))
+        } else if WRITER_FILES.contains(&ext.as_str()) {
             match WriterTab::open(&self.ctx, path) {
                 Ok(w) => Content::Writer(Box::new(w)),
                 Err(e) => return show_error(&format!("Could not open {}:\n{e}", path.display())),
@@ -837,6 +870,7 @@ impl StudioApp {
         let kind = match content {
             Content::Text(_) => TabKind::Text,
             Content::Doc(_) | Content::Writer(_) => TabKind::Doc,
+            Content::Pdf(_) => TabKind::Pdf,
         };
         let content = if mode.allows(kind) {
             content
@@ -866,6 +900,7 @@ impl StudioApp {
                 _ => return self.save_as(index),
             },
             Content::Writer(w) => w.run("file.save"),
+            Content::Pdf(p) => p.run("file.save"),
             Content::Text(_) => return self.save_as(index),
         };
         self.report_save(result)
@@ -877,6 +912,7 @@ impl StudioApp {
         };
         let result = match &mut tab.content {
             Content::Writer(w) => w.run("file.saveAs"),
+            Content::Pdf(p) => p.run("file.save_as"),
             Content::Text(t) => {
                 let name = if t.path().is_some() {
                     t.title()
@@ -1017,7 +1053,7 @@ impl StudioApp {
         let found = match self.tab_mut().map(|t| &mut t.content) {
             Some(Content::Text(t)) => t.search(ctx, &options, step),
             Some(Content::Doc(d)) => d.search(&options, step),
-            Some(Content::Writer(_)) | None => false,
+            Some(Content::Writer(_) | Content::Pdf(_)) | None => false,
         };
         if !found {
             self.status = Some(format!("Cannot find \"{}\"", options.needle));
@@ -1028,7 +1064,7 @@ impl StudioApp {
         match self.tab_mut().map(|t| &mut t.content) {
             Some(Content::Text(t)) => t.search_changed(),
             Some(Content::Doc(d)) => d.search_changed(),
-            Some(Content::Writer(_)) | None => {}
+            Some(Content::Writer(_) | Content::Pdf(_)) | None => {}
         }
     }
 
@@ -1098,7 +1134,10 @@ impl StudioApp {
             .collect();
         bound.sort_by_key(|(_, _, k)| Reverse(k.modifier_count()));
         // In a WordCraft tab only the tab-level keys are ours; WordCraft handles the rest.
-        let writer = matches!(self.tab().map(|t| &t.content), Some(Content::Writer(_)));
+        let writer = matches!(
+            self.tab().map(|t| &t.content),
+            Some(Content::Writer(_) | Content::Pdf(_))
+        );
         for (command, menu, shortcut) in bound {
             if writer && !tab_level(command) {
                 continue;
@@ -1173,6 +1212,7 @@ impl StudioApp {
                 title: t.title(),
                 icon: match t.kind() {
                     TabKind::Doc => crate::icons::AppIcon::Writer,
+                    TabKind::Pdf => crate::icons::AppIcon::Pdf,
                     TabKind::Text => crate::icons::AppIcon::Notepad,
                 },
                 dirty: t.is_dirty(),
@@ -1184,18 +1224,17 @@ impl StudioApp {
             .collect();
         let mode = self.mode();
         let path = self.settings.path;
+        // On the growing path the chapter decides; otherwise the mode does.
+        let choice = |kind: TabKind, unlocks: Chapter| match path {
+            Some(c) if !c.allows(kind) => chrome::Choice::Locked(unlocks.number()),
+            Some(_) => chrome::Choice::Open,
+            None if mode.allows(kind) => chrome::Choice::Open,
+            None => chrome::Choice::Off,
+        };
         let offer = chrome::Offer {
-            ask: mode == Mode::Studio || path.is_some(),
-            home: self.home_kind(),
-            text: mode.allows(TabKind::Text),
-            doc: mode.allows(TabKind::Doc),
-            pdf: self.pdf_offered(),
-            doc_locked: path
-                .filter(|c| !c.allows(TabKind::Doc))
-                .map(|_| Chapter::Writer.number()),
-            pdf_locked: path
-                .filter(|c| !c.offers_pdf())
-                .map(|_| Chapter::Pdf.number()),
+            text: choice(TabKind::Text, Chapter::Notepad),
+            doc: choice(TabKind::Doc, Chapter::Writer),
+            pdf: choice(TabKind::Pdf, Chapter::Pdf),
         };
         let closed: Vec<String> = self.closed.iter().map(|(t, _)| t.clone()).collect();
         let open_picker = std::mem::take(&mut self.open_picker);
@@ -1219,10 +1258,11 @@ impl StudioApp {
                 chrome::Event::Move { from, to } => self.move_tab(from, to),
                 chrome::Event::New(kind) => self.new_tab(kind),
                 chrome::Event::Open => self.open_dialog(),
-                chrome::Event::PdfSoon => {
-                    self.status = Some("PDF tabs arrive in the next update".into());
-                }
                 chrome::Event::Reopen(i) => self.reopen(i),
+                chrome::Event::Off => {
+                    self.status =
+                        Some("That app is off in this mode. Switch at ◧ in the top right.".into());
+                }
                 chrome::Event::Locked(n) => {
                     self.status = Some(format!(
                         "That opens in Chapter {n}. Ask a parent to unlock it (top right → Path)."
@@ -1450,11 +1490,11 @@ impl StudioApp {
     fn ribbon_tabs(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 16.0;
-            if !ribbon::shows(self.ribbon_tab, self.mode()) {
+            if !ribbon::shows(self.ribbon_tab, self.kind() == TabKind::Text) {
                 self.ribbon_tab = 1;
             }
             for (i, name) in ribbon::TABS.iter().enumerate() {
-                if !ribbon::shows(i, self.mode()) {
+                if !ribbon::shows(i, self.kind() == TabKind::Text) {
                     continue;
                 }
                 let on = self.ribbon_tab == i && !self.ribbon_collapsed;
@@ -1495,7 +1535,13 @@ impl StudioApp {
                 {
                     self.ribbon_collapsed = !self.ribbon_collapsed;
                 }
-                for (label, what) in [("↗ Share", "Sharing"), ("💬 Comments", "Comments")] {
+                // Comments and Share are document features; a Notepad tab doesn't show them.
+                let extras: &[(&str, &str)] = if self.kind() == TabKind::Text {
+                    &[]
+                } else {
+                    &[("↗ Share", "Sharing"), ("💬 Comments", "Comments")]
+                };
+                for &(label, what) in extras {
                     if ui
                         .button(RichText::new(label).size(12.5))
                         .on_hover_text(format!("{what} (coming soon)"))
@@ -1535,7 +1581,7 @@ impl StudioApp {
                 state.word_wrap = t.word_wrap;
                 None
             }
-            Some(Content::Writer(_)) | None => None,
+            Some(Content::Writer(_) | Content::Pdf(_)) | None => None,
         };
         ribbon::body(ui, tab, &state, doc)
     }
@@ -1553,7 +1599,7 @@ impl StudioApp {
             Act::SelectAll => match self.tab_mut().map(|t| &mut t.content) {
                 Some(Content::Text(t)) => t.select_all(ctx),
                 Some(Content::Doc(d)) => d.select_all(),
-                Some(Content::Writer(_)) | None => {}
+                Some(Content::Writer(_) | Content::Pdf(_)) | None => {}
             },
             Act::InsertText(text) => self.insert(ctx, &text),
             Act::InsertDate => {
@@ -1565,7 +1611,7 @@ impl StudioApp {
                 let rows = match self.tab().map(|t| &t.content) {
                     Some(Content::Text(t)) => t.stats(),
                     Some(Content::Doc(d)) => d.stats(),
-                    Some(Content::Writer(_)) | None => Vec::new(),
+                    Some(Content::Writer(_) | Content::Pdf(_)) | None => Vec::new(),
                 };
                 self.dialog = Some(Dialog::WordCount { rows });
             }
@@ -1611,7 +1657,7 @@ impl StudioApp {
                     d.insert_text(text);
                 }
             }
-            Some(Content::Writer(_)) | None => {}
+            Some(Content::Writer(_) | Content::Pdf(_)) | None => {}
         }
     }
 
@@ -1637,7 +1683,7 @@ impl StudioApp {
                     _ => continue,
                 },
                 // WordCraft saves through its own AutoSave.
-                Content::Writer(_) | Content::Text(_) => continue,
+                Content::Writer(_) | Content::Pdf(_) | Content::Text(_) => continue,
             };
         }
         self.write_recovery();
@@ -1712,8 +1758,8 @@ impl StudioApp {
                 let (l, c) = d.line_and_column();
                 (l, c, d.word_count(), d.format_label())
             }
-            // WordCraft draws its own status bar.
-            Content::Writer(_) => return,
+            // WordCraft and PdfCraft draw their own status bars.
+            Content::Writer(_) | Content::Pdf(_) => return,
         };
         ui.horizontal(|ui| {
             if let Some(message) = &self.status {
@@ -2015,7 +2061,7 @@ impl StudioApp {
                                 for (n, icon, name, what, kind) in [
                                     (1, crate::icons::AppIcon::Notepad, "Notepad", "Plain text, fast", Some(TabKind::Text)),
                                     (2, crate::icons::AppIcon::Writer, "Writer Studio", "Documents with style", Some(TabKind::Doc)),
-                                    (3, crate::icons::AppIcon::Pdf, "PDF Studio", "Coming soon", None),
+                                    (3, crate::icons::AppIcon::Pdf, "PDF Studio", "Read, organize, sign", Some(TabKind::Pdf)),
                                 ] {
                                     let on = kind.is_some_and(|k| mode.allows(k));
                                     let colour = if on { ACCENT } else { ui.visuals().weak_text_color() };
@@ -2250,6 +2296,8 @@ impl eframe::App for StudioApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx_owned = ui.ctx().clone();
         let ctx = &ctx_owned;
+        // Writer and PDF tabs install their own fonts; keep HarshPad's symbols and bold.
+        fonts::ensure(ctx);
         self.handle_close_request(ctx);
         self.handle_dropped_files(ctx);
         #[cfg(target_os = "macos")]
@@ -2277,7 +2325,10 @@ impl eframe::App for StudioApp {
         let mut clicked = None;
         let mut act = None;
         // A WordCraft tab brings its own title bar, ribbon and status bar.
-        let writer = matches!(self.tab().map(|t| &t.content), Some(Content::Writer(_)));
+        let writer = matches!(
+            self.tab().map(|t| &t.content),
+            Some(Content::Writer(_) | Content::Pdf(_))
+        );
         egui::Panel::top("titlebar")
             .exact_size(chrome::BAR_H)
             .frame(egui::Frame::NONE)
@@ -2335,6 +2386,7 @@ impl eframe::App for StudioApp {
                     Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
                     Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),
                     Some(Content::Writer(w)) => w.ui(ui, frame),
+                    Some(Content::Pdf(p)) => p.ui(ui, frame),
                     None => {}
                 }
             });
@@ -2354,6 +2406,11 @@ impl eframe::App for StudioApp {
         for tab in &mut self.tabs {
             if let Content::Writer(w) = &mut tab.content {
                 w.save_prefs(true);
+            }
+        }
+        for tab in &mut self.tabs {
+            if let Content::Pdf(p) = &mut tab.content {
+                p.save_prefs(true);
             }
         }
         crate::wordcraft_host::print::finish_pending_jobs();

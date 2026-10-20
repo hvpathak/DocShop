@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/core", "crates/rich", "crates/layout", "apps/harshpad", "apps/harshpad-cli"]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/hvpathak/HarshPad"
@@ -18,6 +18,9 @@ wordcraft-engine = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be
 wordcraft-ui-egui = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be5105082e6c2960410a59a6954e5a66d5ebc" }
 wordcraft-proof = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be5105082e6c2960410a59a6954e5a66d5ebc" }
 wordcraft-fonts = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be5105082e6c2960410a59a6954e5a66d5ebc" }
+# PDF Studio is PdfCraft (MIT OR Apache-2.0), from the harshpad branch of our fork, pinned the same way.
+pdfcraft-ui-egui = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+pdfcraft-engine = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "links"] }
 rfd = "0.17"
 
@@ -50,3 +53,12 @@ strip = true
 # WordCraft's PDF writer needs its patched krilla (same pin as WordCraft's own workspace).
 [patch.crates-io]
 krilla = { git = "https://github.com/storytold/craft-libs", rev = "c3487320b2d1de657b860b3c8abb44e1f2b32bd8" }
+# PdfCraft's vendored, patched PDF renderer, parser and windowing (as its own workspace applies them).
+hayro-interpret = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+hayro = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+hayro-syntax = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+hayro-jbig2 = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+lopdf = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+winit = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+egui-wgpu = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }
+vello_common = { git = "https://github.com/hvpathak/pdfcraft", rev = "0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb" }

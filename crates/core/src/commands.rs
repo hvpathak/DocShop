@@ -129,6 +129,8 @@ impl Kinds {
 pub enum TabKind {
     Text,
     Doc,
+    /// A PDF Studio tab (PdfCraft).
+    Pdf,
 }
 
 /// Keys used by the catalog. The UI maps these to its toolkit's keys.
@@ -306,6 +308,8 @@ impl CommandSpec {
         match kind {
             TabKind::Text => self.kinds.text,
             TabKind::Doc => self.kinds.doc,
+            // PDF Studio handles its own editing; only commands that work everywhere apply.
+            TabKind::Pdf => self.kinds.text && self.kinds.doc,
         }
     }
 }

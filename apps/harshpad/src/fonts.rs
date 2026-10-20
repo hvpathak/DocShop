@@ -55,7 +55,64 @@ const SYMBOLS: &[&str] = &[
 ];
 const EMOJI: &[&str] = &["seguiemj.ttf", "NotoEmoji-Regular.ttf"];
 
+/// HarshPad's fonts, read from the system once.
+fn ours() -> &'static FontDefinitions {
+    static FONTS: std::sync::OnceLock<FontDefinitions> = std::sync::OnceLock::new();
+    FONTS.get_or_init(build)
+}
+
 pub fn install(ctx: &egui::Context) {
+    ctx.set_fonts(ours().clone());
+}
+
+/// A Writer or PDF tab installs its own fonts for the whole window. When HarshPad's are
+/// gone (the bold family is the marker), they are added back as fallbacks after the others,
+/// so symbols, emoji and bold text keep working everywhere. Cheap when nothing changed.
+pub fn ensure(ctx: &egui::Context) {
+    let missing = ctx.fonts(|f| {
+        !f.definitions()
+            .families
+            .contains_key(&FontFamily::Name(BOLD.into()))
+    });
+    if missing {
+        let mut defs = ctx.fonts(|f| f.definitions().clone());
+        merge(&mut defs, ours());
+        ctx.set_fonts(defs);
+    }
+}
+
+/// Adds `ours` to `base`: missing font data, our faces at the end of the shared families,
+/// and our named families.
+fn merge(base: &mut FontDefinitions, ours: &FontDefinitions) {
+    for (name, data) in &ours.font_data {
+        base.font_data
+            .entry(name.clone())
+            .or_insert_with(|| data.clone());
+    }
+    for family in [FontFamily::Proportional, FontFamily::Monospace] {
+        let extra = ours.families.get(&family).cloned().unwrap_or_default();
+        let list = base.families.entry(family).or_default();
+        for name in extra {
+            if !list.contains(&name) {
+                list.push(name);
+            }
+        }
+    }
+    let regular = base
+        .families
+        .get(&FontFamily::Proportional)
+        .cloned()
+        .unwrap_or_default();
+    let mut bold: Vec<String> = ours
+        .families
+        .get(&FontFamily::Name(BOLD.into()))
+        .map(|l| l.iter().filter(|n| *n == "bold-face").cloned().collect())
+        .unwrap_or_default();
+    bold.extend(regular);
+    base.families.insert(FontFamily::Name(BOLD.into()), bold);
+}
+
+fn build() -> FontDefinitions {
     let mut fonts = FontDefinitions::default();
     let mut load = |name: &str, candidates: &[&str]| -> bool {
         let Some(bytes) = find(candidates).and_then(|p| std::fs::read(p).ok()) else {
@@ -109,7 +166,7 @@ pub fn install(ctx: &egui::Context) {
     fonts
         .families
         .insert(FontFamily::Name(BOLD.into()), bold_list);
-    ctx.set_fonts(fonts);
+    fonts
 }
 
 fn font_dirs() -> Vec<PathBuf> {
@@ -178,5 +235,43 @@ mod tests {
         defs.families
             .insert(FontFamily::Name(BOLD.into()), Vec::new());
         assert_eq!(bold_in(&defs), FontFamily::Name(BOLD.into()));
+    }
+
+    #[test]
+    fn merging_adds_our_fonts_after_the_others() {
+        let mut ours = FontDefinitions::default();
+        ours.font_data.insert(
+            "symbols".into(),
+            std::sync::Arc::new(FontData::from_static(&[])),
+        );
+        ours.families
+            .entry(FontFamily::Proportional)
+            .or_default()
+            .push("symbols".into());
+        let mut base = FontDefinitions::default();
+        let first = base
+            .families
+            .get(&FontFamily::Proportional)
+            .and_then(|l| l.first().cloned());
+        merge(&mut base, &ours);
+        let list = base
+            .families
+            .get(&FontFamily::Proportional)
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(
+            list.first().cloned(),
+            first,
+            "the other app's fonts stay first"
+        );
+        assert_eq!(list.last().map(String::as_str), Some("symbols"));
+        assert!(base.font_data.contains_key("symbols"));
+        assert!(base.families.contains_key(&FontFamily::Name(BOLD.into())));
+        // Merging twice adds nothing more.
+        merge(&mut base, &ours);
+        assert_eq!(
+            base.families.get(&FontFamily::Proportional).map(Vec::len),
+            Some(list.len())
+        );
     }
 }

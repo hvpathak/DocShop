@@ -27,19 +27,22 @@ pub struct TabInfo {
     pub tooltip: String,
 }
 
-/// Which kinds the new-tab choices offer (the mode decides).
-pub struct Offer {
-    /// Ask which kind (Studio); otherwise + opens `home` straight away.
-    pub ask: bool,
-    pub home: TabKind,
-    pub text: bool,
-    pub doc: bool,
-    pub pdf: bool,
-    /// On the growing path: the chapter that unlocks documents / PDF.
-    pub doc_locked: Option<u8>,
-    pub pdf_locked: Option<u8>,
+/// Whether a kind can be opened from the + menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Choice {
+    Open,
+    /// The current mode has this app switched off.
+    Off,
+    /// Harshal's growing path unlocks it in this chapter.
+    Locked(u8),
 }
 
+/// The three apps the + menu offers (the mode and the growing path decide).
+pub struct Offer {
+    pub text: Choice,
+    pub doc: Choice,
+    pub pdf: Choice,
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Select(usize),
@@ -50,10 +53,11 @@ pub enum Event {
     },
     New(TabKind),
     Open,
-    PdfSoon,
     Reopen(usize),
     /// A choice the growing path hasn't unlocked yet (its chapter).
     Locked(u8),
+    /// A choice the current mode has switched off.
+    Off,
 }
 
 fn macos() -> bool {
@@ -69,121 +73,94 @@ pub fn bar_colour(ui: &egui::Ui) -> Color32 {
 }
 
 /// The 3–4 choices for a new tab, shared by the + picker and the ⌄ menu.
-fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
-    // Each choice is a card: big icon, bold name, grey description, shortcut.
-    let mut pick = |ui: &mut egui::Ui,
-                    icon: AppIcon,
-                    title: &str,
-                    detail: &str,
-                    key: &str,
-                    event: Event,
-                    dim: bool| {
-        let (rect, response) = ui.allocate_exact_size(vec2(340.0, 50.0), Sense::click());
-        let visuals = ui.visuals().clone();
-        if response.hovered() {
-            ui.painter()
-                .rect_filled(rect, 6.0, visuals.widgets.hovered.weak_bg_fill);
-        }
-        let painter = ui.painter();
-        icons::paint(
-            painter,
-            Rect::from_center_size(pos2(rect.left() + 22.0, rect.center().y), vec2(26.0, 26.0)),
-            icon,
-            dim,
-        );
-        painter.text(
-            pos2(rect.left() + 46.0, rect.top() + 16.0),
-            Align2::LEFT_CENTER,
-            title,
-            FontId::new(14.0, crate::fonts::bold(ui.ctx())),
-            if dim {
-                visuals.weak_text_color()
-            } else {
-                visuals.strong_text_color()
-            },
-        );
-        painter.text(
-            pos2(rect.left() + 46.0, rect.top() + 35.0),
-            Align2::LEFT_CENTER,
-            detail,
-            FontId::proportional(12.0),
-            visuals.weak_text_color(),
-        );
-        painter.text(
-            pos2(rect.right() - 10.0, rect.top() + 16.0),
-            Align2::RIGHT_CENTER,
-            key,
-            FontId::proportional(11.5),
-            visuals.weak_text_color(),
-        );
-        if response.on_hover_cursor(CursorIcon::PointingHand).clicked() {
-            events.push(event);
-            egui::Popup::close_all(ui.ctx());
-        }
+/// One choice: big colour icon, bold name, grey description, shortcut. Returns true when
+/// clicked.
+fn card(ui: &mut egui::Ui, icon: AppIcon, title: &str, detail: &str, key: &str, dim: bool) -> bool {
+    let (rect, response) = ui.allocate_exact_size(vec2(340.0, 50.0), Sense::click());
+    let visuals = ui.visuals().clone();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 6.0, visuals.widgets.hovered.weak_bg_fill);
+    }
+    let painter = ui.painter();
+    icons::paint(
+        painter,
+        Rect::from_center_size(pos2(rect.left() + 22.0, rect.center().y), vec2(26.0, 26.0)),
+        icon,
+        dim,
+    );
+    let strong = if dim {
+        visuals.weak_text_color()
+    } else {
+        visuals.strong_text_color()
     };
-    if offer.text {
-        pick(
-            ui,
+    painter.text(
+        pos2(rect.left() + 46.0, rect.top() + 16.0),
+        Align2::LEFT_CENTER,
+        title,
+        FontId::new(14.0, crate::fonts::bold(ui.ctx())),
+        strong,
+    );
+    painter.text(
+        pos2(rect.left() + 46.0, rect.top() + 35.0),
+        Align2::LEFT_CENTER,
+        detail,
+        FontId::proportional(12.0),
+        visuals.weak_text_color(),
+    );
+    painter.text(
+        pos2(rect.right() - 10.0, rect.top() + 16.0),
+        Align2::RIGHT_CENTER,
+        key,
+        FontId::proportional(11.5),
+        visuals.weak_text_color(),
+    );
+    response.on_hover_cursor(CursorIcon::PointingHand).clicked()
+}
+
+/// The three apps of the suite, always all three: Notepad, Writer Studio, PDF Studio.
+fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
+    let apps = [
+        (
+            offer.text,
+            TabKind::Text,
             AppIcon::Notepad,
             "Notepad",
             "Plain text, fast",
             "Ctrl+N",
-            Event::New(TabKind::Text),
-            false,
-        );
-    }
-    if offer.doc {
-        pick(
-            ui,
+        ),
+        (
+            offer.doc,
+            TabKind::Doc,
             AppIcon::Writer,
             "Writer Studio",
             "Documents · .docx, .doc, .odt, .rtf, Markdown",
             "Ctrl+Shift+N",
-            Event::New(TabKind::Doc),
-            false,
-        );
-    } else if let Some(n) = offer.doc_locked {
-        pick(
-            ui,
-            AppIcon::Writer,
-            "Writer Studio 🔒",
-            &format!("Unlocks in Chapter {n}"),
-            "",
-            Event::Locked(n),
-            true,
-        );
-    }
-    if offer.pdf {
-        pick(
-            ui,
+        ),
+        (
+            offer.pdf,
+            TabKind::Pdf,
             AppIcon::Pdf,
             "PDF Studio",
-            "Read, organize and sign · coming soon",
+            "Read, edit, organize, comment and sign PDFs",
             "",
-            Event::PdfSoon,
-            false,
-        );
-    } else if let Some(n) = offer.pdf_locked {
-        pick(
-            ui,
-            AppIcon::Pdf,
-            "PDF Studio 🔒",
-            &format!("Unlocks in Chapter {n}"),
-            "",
-            Event::Locked(n),
-            true,
-        );
+        ),
+    ];
+    for (choice, kind, icon, title, detail, key) in apps {
+        let (detail, key) = match choice {
+            Choice::Open => (detail.to_owned(), key),
+            Choice::Off => ("Off in this mode · switch at ◧ top right".to_owned(), ""),
+            Choice::Locked(n) => (format!("🔒 Unlocks in Chapter {n}"), ""),
+        };
+        if card(ui, icon, title, &detail, key, choice != Choice::Open) {
+            events.push(match choice {
+                Choice::Open => Event::New(kind),
+                Choice::Off => Event::Off,
+                Choice::Locked(n) => Event::Locked(n),
+            });
+            egui::Popup::close_all(ui.ctx());
+        }
     }
-    ui.separator();
-    pick(
-        ui,
-        AppIcon::Folder,
-        "Open a file…",
-        "Text, documents and more",
-        "Ctrl+O",
-        Event::Open,
-        false,
-    );
 }
 
 /// Draws the bar and returns what the user did.
@@ -394,12 +371,11 @@ pub fn title_bar(
         text_colour,
     );
     let picker = Id::new("new-tab-picker");
-    if plus_response.clicked() && !offer.ask {
-        events.push(Event::New(offer.home));
-    } else if plus_response.clicked() {
+    // + always asks which of the three apps to open.
+    if plus_response.clicked() {
         egui::Popup::toggle_id(&ctx, picker);
     }
-    if open_picker && offer.ask {
+    if open_picker {
         egui::Popup::open_id(&ctx, picker);
     }
     egui::Popup::from_response(&plus_response)
@@ -446,6 +422,18 @@ pub fn title_bar(
             ui.label(RichText::new("Open a new tab as…").strong());
             ui.add_space(2.0);
             new_tab_choices(ui, offer, &mut events);
+            ui.separator();
+            if card(
+                ui,
+                AppIcon::Folder,
+                "Open a file…",
+                "Text, documents and PDFs",
+                "Ctrl+O",
+                false,
+            ) {
+                events.push(Event::Open);
+                egui::Popup::close_all(ui.ctx());
+            }
             ui.separator();
             ui.add(
                 egui::TextEdit::singleline(search)

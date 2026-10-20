@@ -1,5 +1,19 @@
 # Dev log
 
+## 2026-10-20: v0.7.0, PDF Studio and Writer Studio
+- Suite names: Notepad + Writer Studio + PDF Studio, with colour icons drawn as shapes.
+- Forks hvpathak/wordcraft and hvpathak/pdfcraft, each with a small `harshpad` branch: embedding options so
+  Help/Feedback go to HarshPad's GitHub, community/Discord/About/account links are hidden, and (WordCraft) a
+  sun/moon light-dark switch replaces the account button. Actions are off on the forks.
+- PDF Studio: PdfCraft in HarshPad tabs (one PDF per tab), with its patched hayro/lopdf/winit/egui-wgpu/vello.
+  New TabKind::Pdf; PDF-only mode; Chapter 3 of the growing path unlocks it.
+- + always offers exactly three apps; ones a mode switches off are greyed, path-locked ones say their chapter.
+- Each tab shows only its own app: Notepad tabs get File/Home/Insert/View/Help without document tools.
+- Fonts: a Writer or PDF tab replaces the window's fonts; HarshPad merges its symbols, emoji and bold back
+  in (fixed a startup crash and boxes instead of symbols). AutoSave switch visible in light mode.
+- scripts/get-their-update.ps1 with upstream-guard baselines; Dependabot patch-only; actions bumped.
+- Opens every file given on the command line.
+
 ## 2026-10-19: v0.6.0, the Writer is WordCraft
 - User's decision: build on WordCraft's code (MIT OR Apache-2.0) instead of rewriting it, for 100% of its features.
 - HarshPad moved to egui/eframe 0.36 on wgpu, WordCraft's version, so its editor runs inside a HarshPad tab
