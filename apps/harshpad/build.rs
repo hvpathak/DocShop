@@ -6,9 +6,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         let mut res = winresource::WindowsResource::new();
         res.set_icon("../../assets/harshpad.ico");
-        res.set("ProductName", "HarshPad");
-        res.set("FileDescription", "HarshPad");
-        res.set("LegalCopyright", "MIT License, HarshPad contributors");
+        res.set("ProductName", "DocShop");
+        res.set(
+            "FileDescription",
+            "DocShop: one place for all your documents",
+        );
+        res.set(
+            "LegalCopyright",
+            "MIT License, DocShop (HarshPad) contributors",
+        );
         res.compile()?;
     }
     Ok(())

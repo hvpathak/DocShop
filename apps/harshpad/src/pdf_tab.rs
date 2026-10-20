@@ -61,7 +61,7 @@ impl PdfTab {
 
     pub fn title(&self) -> String {
         self.doc()
-            .map_or_else(|| "PDF Studio".to_owned(), |d| d.display_name())
+            .map_or_else(|| "PDFShop".to_owned(), |d| d.display_name())
     }
 
     pub fn is_dirty(&self) -> bool {
@@ -77,9 +77,7 @@ impl PdfTab {
         if self.app.execute(id) {
             Ok(())
         } else {
-            Err(std::io::Error::other(format!(
-                "PDF Studio couldn't run {id}"
-            )))
+            Err(std::io::Error::other(format!("PDFShop couldn't run {id}")))
         }
     }
 

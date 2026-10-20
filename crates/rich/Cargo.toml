@@ -1,6 +1,6 @@
 [package]
 name = "harshpad-rich"
-description = "Rich documents for HarshPad: styled text model, editing, Markdown, .docx and .hpdoc. No UI code."
+description = "Rich documents for DocShop: styled text model, editing, Markdown, .docx and .hpdoc. No UI code."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

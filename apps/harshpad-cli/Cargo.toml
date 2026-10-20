@@ -1,6 +1,6 @@
 [package]
 name = "harshpad-cli"
-description = "Headless HarshPad: inspect and edit text files from scripts and agents"
+description = "Headless DocShop: inspect and edit text files from scripts and agents"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

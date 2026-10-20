@@ -1,6 +1,6 @@
 [package]
 name = "harshpad-layout"
-description = "Page layout for HarshPad documents: lines, pages, caret and hit testing"
+description = "Page layout for DocShop documents: lines, pages, caret and hit testing"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

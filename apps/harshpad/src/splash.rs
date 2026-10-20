@@ -100,7 +100,7 @@ impl Splash {
                     egui::StrokeKind::Inside,
                 );
                 // Version pill, top left.
-                let label = format!("HarshPad {}", env!("CARGO_PKG_VERSION"));
+                let label = format!("DocShop {}", env!("CARGO_PKG_VERSION"));
                 let galley = p.layout_no_wrap(label, FontId::proportional(13.0), text);
                 let pill_rect = Rect::from_min_size(
                     screen.min + vec2(18.0, 16.0),
@@ -120,20 +120,20 @@ impl Splash {
                             Color32::WHITE,
                         );
                     }
-                    None => icons::paint(p, logo_rect, AppIcon::Writer, false),
+                    None => icons::paint(p, logo_rect, AppIcon::Suite, false),
                 }
                 p.text(
                     c + vec2(0.0, 58.0),
                     Align2::CENTER_CENTER,
-                    "HarshPad Studio",
+                    "DocShop",
                     FontId::proportional(24.0),
                     text,
                 );
                 // Notepad · Writer Studio · PDF Studio, with their icons.
                 let apps = [
-                    (AppIcon::Notepad, "Notepad"),
-                    (AppIcon::Writer, "Writer Studio"),
-                    (AppIcon::Pdf, "PDF Studio"),
+                    (AppIcon::Notepad, "NoteShop"),
+                    (AppIcon::Writer, "WordShop"),
+                    (AppIcon::Pdf, "PDFShop"),
                 ];
                 let font = FontId::proportional(12.5);
                 let widths: Vec<f32> = apps

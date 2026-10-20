@@ -812,7 +812,7 @@ pub const CATALOG: &[CommandSpec] = &[
     separated(toggle(spec(
         C::ModeStudio,
         "view.modeStudio",
-        "Mode: All together (Studio)",
+        "Mode: All together (DocShop)",
         Some(M::View),
         None,
         KS::ALL,
@@ -820,7 +820,7 @@ pub const CATALOG: &[CommandSpec] = &[
     toggle(spec(
         C::ModeNotepad,
         "view.modeNotepad",
-        "Mode: Notepad only",
+        "Mode: NoteShop only",
         Some(M::View),
         None,
         KS::ALL,
@@ -828,7 +828,7 @@ pub const CATALOG: &[CommandSpec] = &[
     toggle(spec(
         C::ModeWriter,
         "view.modeWriter",
-        "Mode: Writer only",
+        "Mode: WordShop only",
         Some(M::View),
         None,
         KS::ALL,
@@ -836,7 +836,7 @@ pub const CATALOG: &[CommandSpec] = &[
     toggle(spec(
         C::ModePdf,
         "view.modePdf",
-        "Mode: PDF only (coming soon)",
+        "Mode: PDFShop only",
         Some(M::View),
         None,
         KS::ALL,
@@ -876,7 +876,7 @@ pub const CATALOG: &[CommandSpec] = &[
     spec(
         C::About,
         "help.about",
-        "About HarshPad",
+        "About DocShop",
         Some(M::Help),
         None,
         KS::ALL,

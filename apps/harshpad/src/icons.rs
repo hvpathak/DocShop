@@ -1,15 +1,65 @@
-//! Colour icons for the three apps of the suite (Notepad, Writer Studio, PDF Studio)
-//! and for opening a file. Drawn as shapes on a 16-point grid, so they stay sharp at
-//! any size and look the same on every platform.
+//! The suite's app icons: DocShop (the whole suite), NoteShop, WordShop and PDFShop, from the
+//! artwork in assets/apps, plus a drawn folder for "Open a file…". If a picture can't be
+//! loaded, a simple drawn icon stands in, so a tab never shows a blank.
 
-use eframe::egui::{Align2, Color32, CornerRadius, FontId, Painter, Pos2, Rect, Stroke, pos2};
+use eframe::egui::{
+    self, Align2, Color32, CornerRadius, FontId, Id, Painter, Pos2, Rect, Stroke, TextureFilter,
+    TextureHandle, TextureOptions, pos2,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppIcon {
+    /// DocShop: the whole suite.
+    Suite,
+    /// NoteShop.
     Notepad,
+    /// WordShop.
     Writer,
+    /// PDFShop.
     Pdf,
     Folder,
+}
+
+/// The artwork for each app (128 px squares with rounded, transparent corners).
+fn artwork(icon: AppIcon) -> Option<(&'static str, &'static [u8])> {
+    Some(match icon {
+        AppIcon::Suite => (
+            "docshop",
+            include_bytes!("../../../assets/apps/docshop.png"),
+        ),
+        AppIcon::Notepad => (
+            "noteshop",
+            include_bytes!("../../../assets/apps/noteshop.png"),
+        ),
+        AppIcon::Writer => (
+            "wordshop",
+            include_bytes!("../../../assets/apps/wordshop.png"),
+        ),
+        AppIcon::Pdf => (
+            "pdfshop",
+            include_bytes!("../../../assets/apps/pdfshop.png"),
+        ),
+        AppIcon::Folder => return None,
+    })
+}
+
+/// The icon's texture, decoded once and kept for the session. Mipmaps keep it smooth when
+/// drawn as small as a tab icon.
+fn texture(ctx: &egui::Context, icon: AppIcon) -> Option<TextureHandle> {
+    let (name, png) = artwork(icon)?;
+    let id = Id::new(("app-icon", name));
+    if let Some(t) = ctx.data(|d| d.get_temp::<TextureHandle>(id)) {
+        return Some(t);
+    }
+    let decoded = eframe::icon_data::from_png_bytes(png).ok()?;
+    let image = egui::ColorImage::from_rgba_unmultiplied(
+        [decoded.width as usize, decoded.height as usize],
+        &decoded.rgba,
+    );
+    let options = TextureOptions::LINEAR.with_mipmap_mode(Some(TextureFilter::Linear));
+    let t = ctx.load_texture(name, image, options);
+    ctx.data_mut(|d| d.insert_temp(id, t.clone()));
+    Some(t)
 }
 
 const BLUE: Color32 = Color32::from_rgb(37, 99, 235);
@@ -22,8 +72,28 @@ const EDGE: Color32 = Color32::from_rgb(148, 160, 178);
 
 /// Paints `icon` filling `rect` (square). `dim` greys it out (a locked choice).
 pub fn paint(painter: &Painter, rect: Rect, icon: AppIcon, dim: bool) {
+    if let Some(t) = texture(painter.ctx(), icon) {
+        let side = rect.width().min(rect.height());
+        let tint = if dim {
+            Color32::from_white_alpha(90)
+        } else {
+            Color32::WHITE
+        };
+        painter.image(
+            t.id(),
+            Rect::from_center_size(rect.center(), egui::vec2(side, side)),
+            Rect::from_min_max(Pos2::ZERO, pos2(1.0, 1.0)),
+            tint,
+        );
+        return;
+    }
+    paint_drawn(painter, rect, icon, dim);
+}
+
+/// The drawn stand-in, used when the artwork can't be loaded.
+fn paint_drawn(painter: &Painter, rect: Rect, icon: AppIcon, dim: bool) {
     let s = rect.width().min(rect.height()) / 16.0;
-    let o = rect.center() - eframe::egui::vec2(8.0 * s, 8.0 * s);
+    let o = rect.center() - egui::vec2(8.0 * s, 8.0 * s);
     let p = |x: f32, y: f32| -> Pos2 { pos2(o.x + x * s, o.y + y * s) };
     let c = |col: Color32| if dim { col.gamma_multiply(0.35) } else { col };
     let r = |x0: f32, y0: f32, x1: f32, y1: f32| Rect::from_min_max(p(x0, y0), p(x1, y1));
@@ -39,7 +109,7 @@ pub fn paint(painter: &Painter, rect: Rect, icon: AppIcon, dim: bool) {
                 page,
                 round,
                 Stroke::new(0.9 * s, c(EDGE)),
-                eframe::egui::StrokeKind::Inside,
+                egui::StrokeKind::Inside,
             );
             // A red margin and blue ruled lines.
             line(p(5.0, 2.0), p(5.0, 14.0), 0.8, RED);
@@ -47,7 +117,7 @@ pub fn paint(painter: &Painter, rect: Rect, icon: AppIcon, dim: bool) {
                 line(p(6.5, y), p(11.5, y), 1.1, LIGHT_BLUE);
             }
         }
-        AppIcon::Writer => {
+        AppIcon::Writer | AppIcon::Suite => {
             painter.rect_filled(page, round, c(BLUE));
             for (y, end) in [(4.8, 11.0), (7.3, 11.0), (9.8, 8.6)] {
                 line(p(5.0, y), p(end, y), 1.2, Color32::WHITE);
@@ -64,7 +134,7 @@ pub fn paint(painter: &Painter, rect: Rect, icon: AppIcon, dim: bool) {
         AppIcon::Pdf => {
             painter.rect_filled(page, round, c(RED));
             // A folded corner and a white band.
-            painter.add(eframe::egui::Shape::convex_polygon(
+            painter.add(egui::Shape::convex_polygon(
                 vec![p(10.0, 1.0), p(13.5, 4.5), p(10.0, 4.5)],
                 c(Color32::from_rgb(254, 202, 202)),
                 Stroke::NONE,

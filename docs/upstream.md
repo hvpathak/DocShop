@@ -1,6 +1,6 @@
 # Following upstream
 
-HarshPad Studio combines a notepad, a writer and a PDF tool. Two open-source projects cover the
+DocShop combines a notepad, a writer and a PDF tool. Two open-source projects cover the
 writer and PDF areas in depth: [WordCraft](https://github.com/hvpathak/wordcraft) and
 [PdfCraft](https://github.com/hvpathak/pdfcraft). We follow what they announce so HarshPad keeps
 improving, while staying **clean-room**: we read their public feature documents and release notes,
@@ -8,13 +8,13 @@ never their code.
 
 ## How updates reach HarshPad
 
-Writer Studio *is* WordCraft, and PDF Studio will be PdfCraft. Both are used under their open-source
+WordShop *is* WordCraft, and PDFShop will be PdfCraft. Both are used under their open-source
 licenses from forks on our GitHub ([hvpathak/wordcraft](https://github.com/hvpathak/wordcraft),
 [hvpathak/pdfcraft](https://github.com/hvpathak/pdfcraft)), on a `harshpad` branch that adds only
 HarshPad's touches: Help and Feedback go to this project, no community or account buttons, and a
 light/dark switch.
 
-**"Get their update"** = `pwsh scripts/get-their-update.ps1` (`-Project pdfcraft` for PDF Studio):
+**"Get their update"** = `pwsh scripts/get-their-update.ps1` (`-Project pdfcraft` for PDFShop):
 
 1. merges their latest `main` into our `harshpad` branch;
 2. **guards it**: if their update added a community, Discord, account or upstream-website link, the

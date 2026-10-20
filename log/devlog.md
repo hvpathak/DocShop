@@ -1,5 +1,14 @@
 # Dev log
 
+## 2026-10-20: v0.8.0, DocShop
+- The suite is **DocShop** ("one place for all your documents"), with NoteShop (quick notes, big ideas),
+  WordShop (write, edit and create with ease) and PDFShop (view, edit and manage PDFs). The four icons are
+  the owner's artwork (assets/apps, 128 px with rounded transparent corners); DocShop's is the app icon.
+  Release files are now DocShop-*. Settings, recovery and the repo keep the HarshPad name, so nothing is lost.
+- Split view (right-click a tab), Indian title-bar art, no ⌄ menu, one PDF toolbar row, start page when the
+  last tab closes, mode switch on every tab.
+- Build sources come only from hvpathak forks (craft-libs, winprint.rs added); CI enforces it.
+
 ## 2026-10-20: v0.7.0, PDF Studio and Writer Studio
 - Suite names: Notepad + Writer Studio + PDF Studio, with colour icons drawn as shapes.
 - Forks hvpathak/wordcraft and hvpathak/pdfcraft, each with a small `harshpad` branch: embedding options so

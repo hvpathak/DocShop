@@ -1,6 +1,6 @@
 [package]
 name = "harshpad"
-description = "HarshPad: plain text and rich documents in one fast app"
+description = "DocShop: one place for all your documents (NoteShop, WordShop, PDFShop)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

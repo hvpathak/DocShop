@@ -24,8 +24,8 @@ pub struct WriterTab {
 }
 
 /// Help in the Writer opens HarshPad's page; Feedback opens its issues.
-pub const HELP_URL: &str = "https://github.com/hvpathak/HarshPad#readme";
-pub const FEEDBACK_URL: &str = "https://github.com/hvpathak/HarshPad/issues";
+pub const HELP_URL: &str = "https://github.com/hvpathak/DocShop#readme";
+pub const FEEDBACK_URL: &str = "https://github.com/hvpathak/DocShop/issues";
 
 fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
     Services {
@@ -98,7 +98,7 @@ impl WriterTab {
         if self.app.has_document() {
             self.app.title_stem()
         } else {
-            "Writer".to_owned()
+            "WordShop".to_owned()
         }
     }
 

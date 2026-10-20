@@ -1,7 +1,7 @@
 name: Upstream radar
 
 # Once a week, read ONLY the public feature documents (README, roadmap, gaps,
-# parity) and release notes of the projects HarshPad Studio tracks, never their
+# parity) and release notes of the projects DocShop tracks, never their
 # code, and open an issue listing what's new. Each item is then mapped to our
 # crates with docs/upstream.md and built clean-room.
 on:
@@ -71,7 +71,7 @@ jobs:
           if [ -n "$report" ]; then
             gh label create radar --color 1E88E5 --description "Features announced upstream" --force >/dev/null 2>&1 || true
             body="$(printf '%s\n\n%s\n%s\n' \
-              "New feature notes in the projects HarshPad Studio tracks (documents only, never code)." \
+              "New feature notes in the projects DocShop tracks (documents only, never code)." \
               "Map each item to our crates with [docs/upstream.md](../blob/main/docs/upstream.md), then build it clean-room." \
               "$report" | head -c 60000)"
             gh issue create --title "Upstream radar: $(date -u +%Y-%m-%d)" --body "$body" --label radar

@@ -19,19 +19,19 @@ impl Mode {
 
     pub fn label(self) -> &'static str {
         match self {
-            Mode::Studio => "All together (Studio)",
-            Mode::Notepad => "Notepad only",
-            Mode::Writer => "Writer Studio only",
-            Mode::Pdf => "PDF Studio only",
+            Mode::Studio => "All together (DocShop)",
+            Mode::Notepad => "NoteShop only",
+            Mode::Writer => "WordShop only",
+            Mode::Pdf => "PDFShop only",
         }
     }
 
     pub fn short(self) -> &'static str {
         match self {
-            Mode::Studio => "Studio",
-            Mode::Notepad => "Notepad",
-            Mode::Writer => "Writer",
-            Mode::Pdf => "PDF",
+            Mode::Studio => "DocShop",
+            Mode::Notepad => "NoteShop",
+            Mode::Writer => "WordShop",
+            Mode::Pdf => "PDFShop",
         }
     }
 
@@ -102,9 +102,9 @@ impl Chapter {
     /// The app this chapter opens.
     pub fn app(self) -> &'static str {
         match self {
-            Chapter::Notepad => "Notepad",
-            Chapter::Writer => "Writer Studio",
-            Chapter::Pdf => "PDF Studio",
+            Chapter::Notepad => "NoteShop",
+            Chapter::Writer => "WordShop",
+            Chapter::Pdf => "PDFShop",
         }
     }
 

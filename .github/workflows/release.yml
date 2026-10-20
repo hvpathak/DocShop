@@ -10,12 +10,12 @@ permissions:
   contents: write
 
 env:
-  APP: HarshPad
+  APP: DocShop
   BIN: harshpad
   CLI: harshpad-cli
   BUNDLE_ID: io.github.hvpathak.harshpad
   DESKTOP_CATEGORIES: "Utility;TextEditor;"
-  DESKTOP_MIME: "text/plain;"
+  DESKTOP_MIME: "text/plain;application/pdf;application/vnd.openxmlformats-officedocument.wordprocessingml.document;"
   CARGO_TERM_COLOR: always
 
 jobs:

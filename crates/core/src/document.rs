@@ -91,7 +91,7 @@ impl Document {
         let size = fs::metadata(path)?.len();
         if size > MAX_FILE_BYTES {
             return Err(io::Error::other(format!(
-                "the file is {} MB; HarshPad opens files up to {} MB",
+                "the file is {} MB; DocShop opens files up to {} MB",
                 size / (1024 * 1024),
                 MAX_FILE_BYTES / (1024 * 1024)
             )));

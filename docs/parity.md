@@ -57,9 +57,9 @@ WordCraft's latest, and HarshPad is rebuilt, tested on all platforms and release
 
 ## Chapter 3 · PDF
 
-Since v0.7 every PDF Studio tab **is the PdfCraft editor** (github.com/hvpathak/pdfcraft, MIT OR
+Since v0.7 every PDFShop tab **is the PdfCraft editor** (github.com/hvpathak/pdfcraft, MIT OR
 Apache-2.0), from the `harshpad` branch of [our fork](https://github.com/hvpathak/pdfcraft), with its patched
-PDF renderer, parser and windowing applied the way its own workspace does. So PDF Studio has **100% of
+PDF renderer, parser and windowing applied the way its own workspace does. So PDFShop has **100% of
 PdfCraft's features**: all 14 areas of its checklist (viewing, editing, organizing, comments, forms and
 JavaScript, protect and redact, signatures, OCR, create and export, optimize, print, accessibility,
 automation). One PDF per HarshPad tab; its own Home, tabs and Open button step aside, its community links,
@@ -67,6 +67,6 @@ About and update checks are hidden, and Help goes to this project.
 
 ## Order of work
 
-1. **Writer Studio: done** (v0.6, WordCraft). **PDF Studio: done** (v0.7, PdfCraft).
+1. **WordShop: done** (v0.6, WordCraft). **PDFShop: done** (v0.7, PdfCraft).
 2. Left: the agent control channel and default-app registration for documents and PDFs.
 3. New upstream features arrive with each *get their update* (`scripts/get-their-update.ps1`).

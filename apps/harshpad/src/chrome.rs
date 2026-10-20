@@ -131,24 +131,24 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
             offer.text,
             TabKind::Text,
             AppIcon::Notepad,
-            "Notepad",
-            "Plain text, fast",
+            "NoteShop",
+            "Quick notes, big ideas",
             "Ctrl+N",
         ),
         (
             offer.doc,
             TabKind::Doc,
             AppIcon::Writer,
-            "Writer Studio",
-            "Documents · .docx, .doc, .odt, .rtf, Markdown",
+            "WordShop",
+            "Write, edit and create with ease · .docx, .odt, Markdown",
             "Ctrl+Shift+N",
         ),
         (
             offer.pdf,
             TabKind::Pdf,
             AppIcon::Pdf,
-            "PDF Studio",
-            "Read, edit, organize, comment and sign PDFs",
+            "PDFShop",
+            "View, edit and manage PDFs",
             "",
         ),
     ];
@@ -182,7 +182,7 @@ pub fn start_page(ui: &mut egui::Ui, offer: &Offer) -> Vec<Event> {
                 .strong(),
         );
         ui.add_space(4.0);
-        ui.label(RichText::new("Pick an app for the new tab").weak());
+        ui.label(RichText::new("DocShop · one place for all your documents").weak());
         ui.add_space(14.0);
         new_tab_choices(ui, offer, &mut events);
         ui.add_space(6.0);

@@ -27,7 +27,7 @@ use crate::settings::Settings;
 use crate::text_tab::{Step, TextTab};
 use crate::writer_tab::WriterTab;
 
-pub const APP_NAME: &str = "HarshPad";
+pub const APP_NAME: &str = "DocShop";
 const TEXT_SIZE: f32 = 15.0;
 const ZOOM_STEP: f32 = 1.1;
 /// Documents opened from disk larger than this are refused politely.
@@ -1021,9 +1021,9 @@ impl StudioApp {
         // Writer Studio and PDF Studio files can't become a copy of another kind:
         // in a mode where their app is off, say so instead of opening them.
         let studio = if ext == "pdf" {
-            Some((TabKind::Pdf, "PDF Studio"))
+            Some((TabKind::Pdf, "PDFShop"))
         } else if WRITER_FILES.contains(&ext.as_str()) {
-            Some((TabKind::Doc, "Writer Studio"))
+            Some((TabKind::Doc, "WordShop"))
         } else {
             None
         };
@@ -1149,7 +1149,7 @@ impl StudioApp {
                 let Some(mut path) = FileDialog::new()
                     .add_filter("Word document (.docx)", &["docx"])
                     .add_filter("Markdown (.md)", &["md"])
-                    .add_filter("HarshPad document (.hpdoc)", &["hpdoc"])
+                    .add_filter("DocShop document (.hpdoc)", &["hpdoc"])
                     .set_file_name(format!("{stem}.docx"))
                     .save_file()
                 else {
@@ -1593,7 +1593,7 @@ impl StudioApp {
             }
             if ui
                 .button("📖 Start the growing path…")
-                .on_hover_text("Notepad first; a parent unlocks the Writer, then PDF")
+                .on_hover_text("NoteShop first; a parent unlocks WordShop, then PDFShop")
                 .clicked()
             {
                 clicked = Some(Command::StartPath);
@@ -2160,11 +2160,11 @@ impl StudioApp {
                     .show(ctx, |ui| {
                         if start_path {
                             ui.label(
-                                "The growing path starts with the Notepad.\nChoose a parent PIN: only it can unlock the next chapter.",
+                                "The growing path starts with NoteShop.\nChoose a parent PIN: only it can unlock the next chapter.",
                             );
                         } else {
                             ui.label(format!(
-                                "Lock HarshPad in its current mode ({}).\nChanging the mode will then need this PIN.",
+                                "Lock DocShop in its current mode ({}).\nChanging the mode will then need this PIN.",
                                 mode.label()
                             ));
                         }
@@ -2279,7 +2279,7 @@ impl StudioApp {
                             }
                             ui.add_space(6.0);
                             ui.label(
-                                RichText::new("HarshPad is dedicated to Harshal Pathak")
+                                RichText::new("DocShop is dedicated to Harshal Pathak")
                                     .size(11.0)
                                     .weak(),
                             );
@@ -2296,16 +2296,16 @@ impl StudioApp {
                         ui.set_width(460.0);
                         ui.vertical_centered(|ui| {
                             ui.add_space(8.0);
-                            ui.label(RichText::new("Welcome to HarshPad").size(24.0).strong());
+                            ui.label(RichText::new("Welcome to DocShop").size(24.0).strong());
                             ui.label(RichText::new("Three apps in one window, opened one by one like chapters").weak());
                             ui.add_space(14.0);
                             ui.horizontal(|ui| {
                                 let w = 3.0 * 145.0;
                                 ui.add_space((ui.available_width() - w).max(0.0) / 2.0);
                                 for (n, icon, name, what, kind) in [
-                                    (1, crate::icons::AppIcon::Notepad, "Notepad", "Plain text, fast", Some(TabKind::Text)),
-                                    (2, crate::icons::AppIcon::Writer, "Writer Studio", "Documents with style", Some(TabKind::Doc)),
-                                    (3, crate::icons::AppIcon::Pdf, "PDF Studio", "Read, organize, sign", Some(TabKind::Pdf)),
+                                    (1, crate::icons::AppIcon::Notepad, "NoteShop", "Quick notes, big ideas", Some(TabKind::Text)),
+                                    (2, crate::icons::AppIcon::Writer, "WordShop", "Write, edit and create with ease", Some(TabKind::Doc)),
+                                    (3, crate::icons::AppIcon::Pdf, "PDFShop", "View, edit and manage PDFs", Some(TabKind::Pdf)),
                                 ] {
                                     let on = kind.is_some_and(|k| mode.allows(k));
                                     let colour = if on { ACCENT } else { ui.visuals().weak_text_color() };
@@ -2330,7 +2330,7 @@ impl StudioApp {
                             ui.label(format!("You're in {} mode.", mode.label()));
                             ui.label(
                                 RichText::new(
-                                    "Switch apps from ◧ at the top right. Notepad or Writer missing? Choose All together (Studio).",
+                                    "Switch apps from ◧ at the top right. NoteShop or WordShop missing? Choose All together (DocShop).",
                                 )
                                 .size(12.5)
                                 .weak(),
@@ -2346,7 +2346,7 @@ impl StudioApp {
                                 close = true;
                             }
                             ui.add_space(6.0);
-                            ui.label(RichText::new("HarshPad is dedicated to Harshal Pathak").size(11.0).weak());
+                            ui.label(RichText::new("DocShop is dedicated to Harshal Pathak").size(11.0).weak());
                         });
                     });
             }
@@ -2547,9 +2547,9 @@ impl eframe::App for StudioApp {
         // processor's. The editors are already created underneath but not drawn yet: drawing a
         // Writer page under the card shrank the card for a few frames.
         let status = match self.kind() {
-            TabKind::Doc => "Starting Writer Studio",
-            TabKind::Pdf => "Starting PDF Studio",
-            TabKind::Text => "Starting HarshPad Studio",
+            TabKind::Doc => "Starting WordShop",
+            TabKind::Pdf => "Starting PDFShop",
+            TabKind::Text => "Starting DocShop",
         };
         let last = self.settings.window;
         if let Some(splash) = self.splash.as_mut() {
@@ -2826,7 +2826,7 @@ fn show_about() {
     MessageDialog::new()
         .set_title(APP_NAME)
         .set_description(format!(
-            "{APP_NAME} {}\n\nDedicated to Harshal Pathak, who grows up with it:\nfirst the Notepad, then the Writer, then PDF.\n\nPlain text and rich documents in one fast app, written in Rust.\n\
+            "{APP_NAME} {}\n\nDedicated to Harshal Pathak, who grows up with it:\nfirst NoteShop, then WordShop, then PDFShop.\n\nPlain text and rich documents in one fast app, written in Rust.\n\
              Tabs · .docx · Markdown · Find & Replace · crash recovery\n\n\
              Ctrl+Shift+P opens the command palette.",
             env!("CARGO_PKG_VERSION")
