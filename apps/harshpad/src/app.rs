@@ -267,6 +267,9 @@ pub struct StudioApp {
     splash: Option<crate::splash::Splash>,
     /// Two tabs side by side, like a browser's split view.
     split: Option<crate::split::Split>,
+    /// The tab the light/dark look was last set for (WordShop and PDFShop set it while they
+    /// show; NoteShop tabs and the start page get the sun/moon choice back).
+    theme_for: Option<Option<(u64, TabKind)>>,
     /// Files Finder asks us to open (macOS).
     #[cfg(target_os = "macos")]
     finder: Option<fmv_macos_events::Inbox>,
@@ -276,6 +279,13 @@ impl StudioApp {
     pub fn new(cc: &eframe::CreationContext<'_>, initial_files: Vec<PathBuf>) -> Self {
         // Ctrl +/- zooms the page, not the whole interface.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
+        // Two editors side by side (split view) use the same widget ids by design; the
+        // debug-build warning about that would paint red text over them.
+        cc.egui_ctx.options_mut(|o| o.warn_on_id_clash = false);
+        // Open in the light or dark look chosen with the sun/moon switch.
+        if let Some(theme) = crate::wordcraft_host::prefs::theme() {
+            cc.egui_ctx.set_theme(theme);
+        }
         fonts::install(&cc.egui_ctx);
         let mut app = Self {
             tabs: Vec::new(),
@@ -300,6 +310,7 @@ impl StudioApp {
             ctx: cc.egui_ctx.clone(),
             splash: Some(crate::splash::Splash::new(&cc.egui_ctx, crate::ICON_PNG)),
             split: None,
+            theme_for: None,
             #[cfg(target_os = "macos")]
             finder: None,
         };
@@ -663,7 +674,8 @@ impl StudioApp {
         }
         let mut take_out = None;
         for (index, rect) in halves {
-            let centre = rect.right_bottom() - egui::vec2(3.0, 3.0);
+            // In the gap under the pane's corner, like a browser's split view.
+            let centre = rect.right_bottom() + egui::vec2(-10.0, crate::split::BOTTOM / 2.0);
             let hit = egui::Rect::from_center_size(centre, egui::vec2(20.0, 20.0));
             let response = ui
                 .interact(
@@ -2559,10 +2571,22 @@ impl eframe::App for StudioApp {
                 .inner;
             if done {
                 self.splash = None;
+                // Draw the editors straight away at the new size (otherwise the window
+                // stays blank until the mouse moves).
+                ui.ctx().request_repaint();
             }
             return;
         }
         self.handle_dropped_files(ctx);
+        let showing = self.tab().map(|t| (t.id, t.kind()));
+        if self.theme_for != Some(showing) {
+            self.theme_for = Some(showing);
+            if !matches!(showing, Some((_, TabKind::Doc | TabKind::Pdf)))
+                && let Some(theme) = crate::wordcraft_host::prefs::theme()
+            {
+                ctx.set_theme(theme);
+            }
+        }
         #[cfg(target_os = "macos")]
         if let Some(inbox) = &self.finder {
             let (files, quit) = crate::wordcraft_host::apple_events::drain(inbox);

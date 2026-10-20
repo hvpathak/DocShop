@@ -25,6 +25,21 @@ pub fn load(app: &mut WordApp) {
     }
 }
 
+/// The light/dark choice made with the sun/moon switch, so the whole of DocShop opens in it
+/// (NoteShop tabs too), not only WordShop tabs. `None`: follow the system.
+pub fn theme() -> Option<eframe::egui::ThemePreference> {
+    theme_from_json(&std::fs::read(prefs_path()?).ok()?)
+}
+
+fn theme_from_json(bytes: &[u8]) -> Option<eframe::egui::ThemePreference> {
+    let value: serde_json::Value = serde_json::from_slice(bytes).ok()?;
+    match value.get("theme")?.as_str()? {
+        "light" => Some(eframe::egui::ThemePreference::Light),
+        "dark" => Some(eframe::egui::ThemePreference::Dark),
+        _ => None,
+    }
+}
+
 /// The preferences as JSON, to save when they change.
 pub fn snapshot(app: &WordApp) -> Option<Vec<u8>> {
     serde_json::to_vec_pretty(&app.prefs()).ok()
@@ -77,4 +92,24 @@ pub fn load_user_fonts() {
 /// Crash-recovery copies of unsaved Writer documents.
 pub fn recovery_dir() -> Option<PathBuf> {
     dir().map(|d| d.join("recovery"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::theme_from_json;
+    use eframe::egui::ThemePreference;
+
+    #[test]
+    fn the_sun_moon_choice_is_read_back() {
+        assert_eq!(
+            theme_from_json(br#"{"theme":"light"}"#),
+            Some(ThemePreference::Light)
+        );
+        assert_eq!(
+            theme_from_json(br#"{"theme":"dark","x":1}"#),
+            Some(ThemePreference::Dark)
+        );
+        assert_eq!(theme_from_json(br#"{"theme":"system"}"#), None);
+        assert_eq!(theme_from_json(b"not json"), None);
+    }
 }

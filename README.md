@@ -33,6 +33,7 @@
 <p align="center">
   <a href="#download"><b>⬇ Download</b></a> ·
   <a href="#the-four-shops">🛍 The four shops</a> ·
+  <a href="#split-view">◫ Split view</a> ·
   <a href="#for-harshal-the-growing-path">📖 The growing path</a> ·
   <a href="#one-app-four-modes">🎛 Modes</a> ·
   <a href="#fast-measured">⚡ Speed</a> ·
@@ -77,8 +78,8 @@ put in order and sign.
 Each chapter keeps everything from the one before, and it works the same on Windows, macOS and Linux.
 
 <p align="center">
-  <img src="docs/images/chapter-1.png" alt="The Chapter 1 card: a notepad icon, 'Chapter 1 · First words · NoteShop is yours', a short story about starting with a blank page, a path showing 1. NoteShop as current and 2. Writer and 3. PDF locked, a Let's go button, and 'DocShop is dedicated to Harshal Pathak'" width="49%">
-  <img src="docs/images/locked-choices.png" alt="On Chapter 1, the + menu offers Text file, while Document says 'Unlocks in Chapter 2: Writer' and PDF says 'Unlocks in Chapter 3: PDF', both greyed out with a lock" width="49%">
+  <img src="docs/images/chapter-1.png" alt="The Chapter 1 card: the NoteShop icon, Chapter 1, First words, The NoteShop is yours, a short story about starting with a blank page, a path showing 1. NoteShop as current with 2. WordShop and 3. PDFShop locked, a Let's go button, and DocShop is dedicated to Harshal Pathak" width="56%">
+  <img src="docs/images/locked-choices.png" alt="On Chapter 1 the + menu offers NoteShop, while WordShop says Unlocks in Chapter 2 and PDFShop says Unlocks in Chapter 3, both greyed out" width="42%">
 </p>
 
 **How to use it:** top right **◧ → 📖 Start the growing path…**, choose a parent PIN, and DocShop
@@ -90,18 +91,50 @@ Where each chapter stands on its way to 100% of the projects we follow: **[Road 
 
 ## Three apps, one window, browser-style tabs
 
+<p align="center">
+  <img src="docs/images/new-tab.png" alt="Clicking + next to the tabs: Open a new tab as… with NoteShop (Quick notes, big ideas, Ctrl+N), WordShop (Write, edit and create with ease, Ctrl+Shift+N) and PDFShop (View, edit and manage PDFs), each with its icon; five tabs are open: a shopping list, two documents and two PDFs" width="100%">
+</p>
+
 - **+ asks which app:** NoteShop, WordShop or PDFShop, always those three (<kbd>Ctrl+T</kbd>). One a mode
   switches off shows greyed out; on Harshal's growing path a locked one says which chapter unlocks it.
 - **Tabs live in the title bar**, each with its app's colour icon. Drag to reorder, middle-click or <kbd>Ctrl+W</kbd> to
   close, <kbd>Ctrl+Tab</kbd> to cycle, <kbd>Ctrl+1</kbd>…<kbd>Ctrl+8</kbd> to jump. A dot marks unsaved work.
 - **Split view, like a web browser:** right-click a tab → *Split view with…* to put two tabs of the same kind
-  (two documents, two PDFs, two notes) side by side. Click a side to work in it (blue outline); drag the
-  middle to resize; the × in a side's bottom-right corner takes it out of the split.
+  (two documents, two PDFs, two notes) side by side. [More below](#split-view).
 - **Close the last tab** and the window asks what to open next: NoteShop, WordShop, PDFShop or a file.
   <kbd>Ctrl+Shift+T</kbd> brings the last closed tab back, unsaved text included.
 - **Indian border art** (paisleys and lotuses) runs along the title bar, gold on dark and maroon on light.
 - **Each tab shows only its own app.** A NoteShop tab has NoteShop's tools; a WordShop tab has the full
   word-processor ribbon; a PDFShop tab has the PDF tools. Nothing mixes.
+
+## Split view
+
+Two tabs of the same kind, side by side, the way a web browser does it:
+
+1. **Right-click a tab → Split view with…** and pick the other document (or PDF, or note).
+2. **Click a side to work in it.** The active side has a blue outline, and only it gets the keyboard.
+3. **Drag the middle** to give one side more room; **double-click** it to make both halves equal again.
+4. **The × under each side's bottom-right corner** takes that side out of the split. The tab stays open.
+5. **Closing a tab** works as always, and closing the last one brings up the start page.
+
+<p align="center">
+  <img src="docs/images/split-wordshop.gif" alt="Video: two WordShop documents, Quarterly plan and Meeting notes, are put side by side from the tab's right-click menu; clicking each side moves the blue outline, the middle is dragged and double-clicked, the × under the right side ends the split, and the Meeting notes tab is closed" width="100%"><br>
+  <sub>WordShop: two documents side by side</sub>
+</p>
+
+<p align="center">
+  <img src="docs/images/split-pdfshop.gif" alt="Video: two PDFs, My Nature Journal and Our Solar System, side by side in PDFShop; each side is clicked, the divider dragged, the split ended with its ×, and then every tab is closed one by one until the start page appears" width="100%"><br>
+  <sub>PDFShop: two PDFs side by side, then closing every tab</sub>
+</p>
+
+<p align="center">
+  <img src="docs/images/split.png" alt="Split view still: Quarterly plan on the left with the blue active outline, Meeting notes on the right, each with its own ribbon and a × under its bottom-right corner" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/images/start.png" alt="The start page after the last tab closes: What would you like to open? DocShop, one place for all your documents, with NoteShop, WordShop, PDFShop and Open a file…" width="100%"><br>
+  <sub>Close the last tab and DocShop asks what to open next.</sub>
+</p>
 
 ## One app, four modes
 
@@ -119,7 +152,7 @@ current mode says so instead of opening.
 ## WordShop
 
 <p align="center">
-  <img src="docs/images/writer.png" alt="The Writer File screen inside a DocShop tab: Home, New, Open, Info, Recover, Save, Save As, Print, Export, Close and Options on the left; Good afternoon with templates for a blank document, a studio handbook, a letter and a résumé; and a Recent list with Quarterly plan.docx" width="100%">
+  <img src="docs/images/writer.png" alt="A WordShop tab with Meeting notes: the full ribbon (File, Home, Insert, Draw, Design, Layout, References, Mailings, Review, View, Developer, Zotero, Help), styles, rulers, and a page with headings, a bulleted list, a numbered list and a quote" width="100%">
 </p>
 
 Every WordShop tab is **[WordCraft](https://github.com/hvpathak/wordcraft)**, the open-source word
@@ -138,20 +171,24 @@ which adds DocShop's touches: Help and Feedback go to this project, no community
 ## PDFShop
 
 <p align="center">
-  <img src="docs/images/pdf.png" alt="A PDFShop tab with a red PDF icon: the PDF tools (All tools, Read, Edit, Convert, E-Sign), a tools list with Export, Fill and Sign, Edit, Create, Combine, Organize pages, Add comments, Scan and OCR, Protect, Redact, Compress, Prepare a form and Add a stamp, the page 'Harshal's Report', and side panels with zoom" width="100%">
+  <img src="docs/images/pdf.png" alt="A PDFShop tab with My Nature Journal: a sunrise sky, green hills and a pink lotus on a pond; the PDF tools on the left and one toolbar row with All tools, Read, Edit, Convert, E-Sign, search, info, save, print, help and theme" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/images/pdf-solar.png" alt="A PDFShop tab with Our Solar System: a starry navy poster with the sun and planets on their orbits" width="100%">
 </p>
 
 Every PDFShop tab is **[PdfCraft](https://github.com/hvpathak/pdfcraft)**, the open-source PDF editor, running
 inside DocShop: read with sharp zoom, search and copy text; edit text and images; organize, insert, extract,
 split and combine pages; comment and highlight; fill and sign forms; create, export and compress PDFs; protect,
-redact, OCR and more. Its own tab strip steps aside for DocShop's tabs (one PDF per tab), it keeps its light/dark
-button, and Help goes to this project. It comes from the `harshpad` branch of
+redact, OCR and more. Its own tab strip steps aside for DocShop's tabs (one PDF per tab), so it has a single toolbar row
+with its help and light/dark buttons at the end, and Help goes to this project. It comes from the `harshpad` branch of
 [our fork](https://github.com/hvpathak/pdfcraft), updated the same way as the Writer.
 
 ## NoteShop
 
 <p align="center">
-  <img src="docs/images/notepad.png" alt="A NoteShop tab: a plain-text shopping list; the ribbon has only File, Home, Insert, View and Help, and Home shows just Clipboard, Word Wrap, Date and Time, and Find, Replace, Select All; the AutoSave switch is a grey pill; the status bar reads Ln 1, Col 1, 19 words, 100%, UTF-8, Windows (CRLF)" width="100%">
+  <img src="docs/images/notepad.png" alt="A NoteShop tab: a plain-text shopping list; the ribbon has only File, Home, Insert, View and Help; the status bar reads Ln 1, Col 1, 22 words, 100%, UTF-8, Windows (CRLF)" width="100%">
 </p>
 
 Everything the classic notepad does, with guarantees it never had:

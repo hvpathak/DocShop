@@ -9,6 +9,8 @@ pub const MIN_SIDE: f32 = 0.2;
 /// Space around the panes and between them (the divider).
 pub const MARGIN: f32 = 6.0;
 pub const GAP: f32 = 10.0;
+/// Room under the panes for each side's × (so it never covers the editor's own controls).
+pub const BOTTOM: f32 = 24.0;
 
 /// The two tabs (by id) in the split, left and right, and where the divider sits (0–1).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -50,7 +52,7 @@ pub fn panes(full: Rect, ratio: f32) -> (Rect, Rect, Rect) {
     };
     let x = full.left() + full.width() * ratio;
     let top = full.top() + MARGIN * 0.5;
-    let bottom = (full.bottom() - MARGIN).max(top);
+    let bottom = (full.bottom() - BOTTOM).max(top);
     let left = Rect::from_min_max(
         pos2(full.left() + MARGIN, top),
         pos2((x - GAP / 2.0).max(full.left() + MARGIN), bottom),

@@ -8,6 +8,10 @@
 - Split view (right-click a tab), Indian title-bar art, no ⌄ menu, one PDF toolbar row, start page when the
   last tab closes, mode switch on every tab.
 - Build sources come only from hvpathak forks (craft-libs, winprint.rs added); CI enforces it.
+- Split view: each side's × sits in a gap under the pane (it used to cover the editor's zoom control).
+  The window redraws right after the start-up card (it stayed blank until the mouse moved). DocShop opens in
+  the sun/moon light/dark choice, and NoteShop tabs and the start page get it back after a PDF tab.
+- README: every picture recaptured full screen, plus split-view videos for WordShop and PDFShop.
 
 ## 2026-10-20: v0.7.0, PDF Studio and Writer Studio
 - Suite names: Notepad + Writer Studio + PDF Studio, with colour icons drawn as shapes.
