@@ -1171,10 +1171,9 @@ impl StudioApp {
             .iter()
             .map(|t| chrome::TabInfo {
                 title: t.title(),
-                icon: if t.kind() == TabKind::Doc {
-                    "📝"
-                } else {
-                    "📄"
+                icon: match t.kind() {
+                    TabKind::Doc => crate::icons::AppIcon::Writer,
+                    TabKind::Text => crate::icons::AppIcon::Notepad,
                 },
                 dirty: t.is_dirty(),
                 tooltip: t.path().map_or_else(
@@ -1923,11 +1922,13 @@ impl StudioApp {
                         ui.vertical_centered(|ui| {
                             ui.add_space(8.0);
                             let icon = match chapter {
-                                Chapter::Notepad => "📄",
-                                Chapter::Writer => "📝",
-                                Chapter::Pdf => "📕",
+                                Chapter::Notepad => crate::icons::AppIcon::Notepad,
+                                Chapter::Writer => crate::icons::AppIcon::Writer,
+                                Chapter::Pdf => crate::icons::AppIcon::Pdf,
                             };
-                            ui.label(RichText::new(icon).size(44.0));
+                            let (r, _) =
+                                ui.allocate_exact_size(vec2(52.0, 52.0), egui::Sense::hover());
+                            crate::icons::paint(ui.painter(), r, icon, false);
                             ui.label(
                                 RichText::new(format!("Chapter {}", chapter.number()))
                                     .size(13.0)
@@ -2012,15 +2013,16 @@ impl StudioApp {
                                 let w = 3.0 * 145.0;
                                 ui.add_space((ui.available_width() - w).max(0.0) / 2.0);
                                 for (n, icon, name, what, kind) in [
-                                    (1, "📄", "Notepad", "Plain text, fast", Some(TabKind::Text)),
-                                    (2, "📝", "Writer", "Documents with style", Some(TabKind::Doc)),
-                                    (3, "📕", "PDF", "Coming soon", None),
+                                    (1, crate::icons::AppIcon::Notepad, "Notepad", "Plain text, fast", Some(TabKind::Text)),
+                                    (2, crate::icons::AppIcon::Writer, "Writer Studio", "Documents with style", Some(TabKind::Doc)),
+                                    (3, crate::icons::AppIcon::Pdf, "PDF Studio", "Coming soon", None),
                                 ] {
                                     let on = kind.is_some_and(|k| mode.allows(k));
                                     let colour = if on { ACCENT } else { ui.visuals().weak_text_color() };
                                     ui.allocate_ui(vec2(145.0, 96.0), |ui| {
                                         ui.vertical_centered(|ui| {
-                                            ui.label(RichText::new(icon).size(30.0));
+                                            let (r, _) = ui.allocate_exact_size(vec2(40.0, 40.0), egui::Sense::hover());
+                                            crate::icons::paint(ui.painter(), r, icon, !on && kind.is_some());
                                             ui.label(RichText::new(format!("Chapter {n}")).size(11.0).color(colour));
                                             ui.label(RichText::new(name).size(15.0).strong());
                                             ui.label(RichText::new(what).size(11.5).weak());

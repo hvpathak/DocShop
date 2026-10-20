@@ -10,6 +10,8 @@ use eframe::egui::{
 };
 use harshpad_core::commands::TabKind;
 
+use crate::icons::{self, AppIcon};
+
 pub const BAR_H: f32 = 40.0;
 const TAB_TOP: f32 = 7.0;
 const MAX_TAB_W: f32 = 240.0;
@@ -20,7 +22,7 @@ const CONTROL_W: f32 = 46.0;
 
 pub struct TabInfo {
     pub title: String,
-    pub icon: &'static str,
+    pub icon: AppIcon,
     pub dirty: bool,
     pub tooltip: String,
 }
@@ -70,7 +72,7 @@ pub fn bar_colour(ui: &egui::Ui) -> Color32 {
 fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     // Each choice is a card: big icon, bold name, grey description, shortcut.
     let mut pick = |ui: &mut egui::Ui,
-                    icon: &str,
+                    icon: AppIcon,
                     title: &str,
                     detail: &str,
                     key: &str,
@@ -83,22 +85,17 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
                 .rect_filled(rect, 6.0, visuals.widgets.hovered.weak_bg_fill);
         }
         let painter = ui.painter();
-        painter.text(
-            pos2(rect.left() + 22.0, rect.center().y),
-            Align2::CENTER_CENTER,
+        icons::paint(
+            painter,
+            Rect::from_center_size(pos2(rect.left() + 22.0, rect.center().y), vec2(26.0, 26.0)),
             icon,
-            FontId::proportional(22.0),
-            if dim {
-                visuals.weak_text_color()
-            } else {
-                visuals.text_color()
-            },
+            dim,
         );
         painter.text(
             pos2(rect.left() + 46.0, rect.top() + 16.0),
             Align2::LEFT_CENTER,
             title,
-            FontId::new(14.0, egui::FontFamily::Name("bold".into())),
+            FontId::new(14.0, crate::fonts::bold(ui.ctx())),
             if dim {
                 visuals.weak_text_color()
             } else {
@@ -127,9 +124,9 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     if offer.text {
         pick(
             ui,
-            "📄",
-            "Text file",
-            "Plain text, like a notepad",
+            AppIcon::Notepad,
+            "Notepad",
+            "Plain text, fast",
             "Ctrl+N",
             Event::New(TabKind::Text),
             false,
@@ -138,9 +135,9 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     if offer.doc {
         pick(
             ui,
-            "📝",
-            "Document",
-            "Formatted writing · .docx, Markdown",
+            AppIcon::Writer,
+            "Writer Studio",
+            "Documents · .docx, .doc, .odt, .rtf, Markdown",
             "Ctrl+Shift+N",
             Event::New(TabKind::Doc),
             false,
@@ -148,9 +145,9 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     } else if let Some(n) = offer.doc_locked {
         pick(
             ui,
-            "🔒",
-            "Document",
-            &format!("Unlocks in Chapter {n}: Writer"),
+            AppIcon::Writer,
+            "Writer Studio 🔒",
+            &format!("Unlocks in Chapter {n}"),
             "",
             Event::Locked(n),
             true,
@@ -159,8 +156,8 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     if offer.pdf {
         pick(
             ui,
-            "📕",
-            "PDF",
+            AppIcon::Pdf,
+            "PDF Studio",
             "Read, organize and sign · coming soon",
             "",
             Event::PdfSoon,
@@ -169,9 +166,9 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     } else if let Some(n) = offer.pdf_locked {
         pick(
             ui,
-            "🔒",
-            "PDF",
-            &format!("Unlocks in Chapter {n}: PDF"),
+            AppIcon::Pdf,
+            "PDF Studio 🔒",
+            &format!("Unlocks in Chapter {n}"),
             "",
             Event::Locked(n),
             true,
@@ -180,7 +177,7 @@ fn new_tab_choices(ui: &mut egui::Ui, offer: &Offer, events: &mut Vec<Event>) {
     ui.separator();
     pick(
         ui,
-        "📂",
+        AppIcon::Folder,
         "Open a file…",
         "Text, documents and more",
         "Ctrl+O",
@@ -281,12 +278,11 @@ pub fn title_bar(
         let show_close = is_active || response.hovered() || tab_w >= 120.0 && tab.dirty;
         let close = Rect::from_center_size(pos2(r.right() - 17.0, r.center().y), vec2(18.0, 18.0));
         // Favicon-style icon, then the title clipped with a fade at the right.
-        painter.text(
-            pos2(r.left() + 13.0, r.center().y),
-            Align2::LEFT_CENTER,
+        icons::paint(
+            &painter,
+            Rect::from_center_size(pos2(r.left() + 21.0, r.center().y), vec2(16.0, 16.0)),
             tab.icon,
-            FontId::proportional(14.0),
-            text_colour,
+            false,
         );
         let text_left = r.left() + 33.0;
         let text_right = if show_close {
@@ -467,20 +463,23 @@ pub fn title_bar(
                         if !query.is_empty() && !tab.title.to_lowercase().contains(&query) {
                             continue;
                         }
-                        let label = format!(
-                            "{}  {}{}",
-                            tab.icon,
-                            tab.title,
-                            if tab.dirty { "  ●" } else { "" }
+                        let label =
+                            format!("      {}{}", tab.title, if tab.dirty { "  ●" } else { "" });
+                        let row = ui.add(
+                            egui::Button::new(label)
+                                .selected(i == active)
+                                .min_size(vec2(310.0, 26.0)),
                         );
-                        if ui
-                            .add(
-                                egui::Button::new(label)
-                                    .selected(i == active)
-                                    .min_size(vec2(310.0, 26.0)),
-                            )
-                            .clicked()
-                        {
+                        icons::paint(
+                            ui.painter(),
+                            Rect::from_center_size(
+                                pos2(row.rect.left() + 14.0, row.rect.center().y),
+                                vec2(16.0, 16.0),
+                            ),
+                            tab.icon,
+                            false,
+                        );
+                        if row.clicked() {
                             events.push(Event::Select(i));
                             egui::Popup::close_all(ui.ctx());
                         }

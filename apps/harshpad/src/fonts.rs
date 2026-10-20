@@ -8,6 +8,21 @@ use eframe::egui::{self, FontData, FontDefinitions, FontFamily};
 /// Font family for bold document text.
 pub const BOLD: &str = "bold";
 
+/// The bold family, or the regular one when it isn't bound: a Writer tab (WordCraft) installs
+/// its own fonts for the whole window, and egui panics on a family that isn't bound.
+pub fn bold(ctx: &egui::Context) -> egui::FontFamily {
+    ctx.fonts(|f| bold_in(f.definitions()))
+}
+
+fn bold_in(defs: &FontDefinitions) -> FontFamily {
+    let bold = FontFamily::Name(BOLD.into());
+    if defs.families.contains_key(&bold) {
+        bold
+    } else {
+        FontFamily::Proportional
+    }
+}
+
 const EDITOR: &[&str] = &[
     "consola.ttf",
     "Menlo.ttc",
@@ -149,4 +164,19 @@ fn find(candidates: &[&str]) -> Option<PathBuf> {
     candidates
         .iter()
         .find_map(|name| dirs.iter().find_map(|d| search(d, name, 4, &mut 0)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bold_falls_back_when_another_app_replaced_the_fonts() {
+        // A Writer tab installs WordCraft's fonts, which have no `bold` family.
+        let mut defs = FontDefinitions::default();
+        assert_eq!(bold_in(&defs), FontFamily::Proportional);
+        defs.families
+            .insert(FontFamily::Name(BOLD.into()), Vec::new());
+        assert_eq!(bold_in(&defs), FontFamily::Name(BOLD.into()));
+    }
 }

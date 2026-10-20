@@ -21,8 +21,8 @@ impl Mode {
         match self {
             Mode::Studio => "All together (Studio)",
             Mode::Notepad => "Notepad only",
-            Mode::Writer => "Writer only",
-            Mode::Pdf => "PDF only",
+            Mode::Writer => "Writer Studio only",
+            Mode::Pdf => "PDF Studio only",
         }
     }
 
@@ -101,8 +101,8 @@ impl Chapter {
     pub fn app(self) -> &'static str {
         match self {
             Chapter::Notepad => "Notepad",
-            Chapter::Writer => "Writer",
-            Chapter::Pdf => "PDF",
+            Chapter::Writer => "Writer Studio",
+            Chapter::Pdf => "PDF Studio",
         }
     }
 

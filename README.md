@@ -5,8 +5,8 @@
 <h1 align="center">HarshPad Studio</h1>
 
 <p align="center">
-  <b>A notepad, a full word processor and (soon) a PDF tool, in one app with browser-style tabs.</b><br>
-  The Writer is <a href="https://github.com/storytold/wordcraft">WordCraft</a>, built in. Plain text, <code>.docx</code>, <code>.doc</code>, <code>.odt</code>, <code>.rtf</code>, Markdown.<br>
+  <b>Notepad + Writer Studio + PDF Studio (soon): one suite, one window, browser-style tabs.</b><br>
+  Writer Studio is <a href="https://github.com/storytold/wordcraft">WordCraft</a>, built in. Plain text, <code>.docx</code>, <code>.doc</code>, <code>.odt</code>, <code>.rtf</code>, Markdown.<br>
   No installer, no account, no telemetry. Windows, macOS and Linux.
 </p>
 
@@ -24,7 +24,7 @@
   <a href="#download"><b>⬇ Download</b></a> ·
   <a href="#for-harshal-the-growing-path">📖 The growing path</a> ·
   <a href="#one-app-four-modes">🎛 Modes</a> ·
-  <a href="#the-writer">✍️ Writer</a> ·
+  <a href="#writer-studio">✍️ Writer Studio</a> ·
   <a href="#the-notepad">📄 Notepad</a> ·
   <a href="#fast-measured">⚡ Speed</a> ·
   <a href="#roadmap">🚀 Roadmap</a>
@@ -101,13 +101,13 @@ mode behind a 4–8 digit PIN, so a child can use the Writer without wandering i
 Files of another kind open as a new copy in the current mode, so nothing on disk is ever overwritten
 in a different format.
 
-## The Writer
+## Writer Studio
 
 <p align="center">
   <img src="docs/images/writer.png" alt="The Writer File screen inside a HarshPad tab: Home, New, Open, Info, Recover, Save, Save As, Print, Export, Close and Options on the left; Good afternoon with templates for a blank document, a studio handbook, a letter and a résumé; and a Recent list with Quarterly plan.docx" width="100%">
 </p>
 
-Every Writer tab is **[WordCraft](https://github.com/storytold/wordcraft)**, the open-source word
+Every Writer Studio tab is **[WordCraft](https://github.com/storytold/wordcraft)**, the open-source word
 processor, running inside HarshPad. That's the whole of it, not a subset: the full ribbon and command
 catalog, styles and themes, tables, page layout and sections, headers and footers, footnotes,
 references and citations, comments, track changes, compare, proofing, mail merge, pictures, shapes,
@@ -116,7 +116,9 @@ crash recovery and your own dictionary and fonts.
 
 It opens .docx, .doc, .rtf, .odt, .html and Markdown, and saves those plus PDF. HarshPad adds
 the browser-style tabs, so a document, a plain-text note and (soon) a PDF sit side by side in one window.
-WordCraft is pinned to an exact upstream version, and new WordCraft releases come into HarshPad as updates.
+WordCraft is pinned to an exact version on the `harshpad` branch of [our fork](https://github.com/hvpathak/wordcraft),
+which adds HarshPad's touches: Help and Feedback go to this project, no community or account buttons, and a
+☀/☾ light/dark switch. New WordCraft releases come in with one command, `scripts/get-their-update.ps1`.
 ## The Notepad
 
 <p align="center">

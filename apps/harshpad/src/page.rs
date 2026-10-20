@@ -14,18 +14,16 @@ use eframe::egui::{
 use harshpad_layout::{Face, Layout, Look, Metrics, PageSetup};
 use harshpad_rich::{ParaStyle, Rgb};
 
-use crate::fonts::BOLD;
-
 /// Screen pixels per point at 100% zoom.
 pub const PX_PER_PT: f32 = 4.0 / 3.0;
 /// Gap between pages on screen.
 pub const PAGE_GAP: f32 = 24.0;
 
-pub fn family(face: &Face) -> FontFamily {
+pub fn family(face: &Face, ctx: &egui::Context) -> FontFamily {
     if face.mono {
         FontFamily::Monospace
     } else if face.bold {
-        FontFamily::Name(BOLD.into())
+        crate::fonts::bold(ctx)
     } else {
         FontFamily::Proportional
     }
@@ -48,28 +46,28 @@ impl<'a> AppMetrics<'a> {
     }
 }
 
-fn font_id(face: &Face, size_pt: f32) -> FontId {
-    FontId::new(size_pt * PX_PER_PT, family(face))
+fn font_id(face: &Face, size_pt: f32, ctx: &egui::Context) -> FontId {
+    FontId::new(size_pt * PX_PER_PT, family(face, ctx))
 }
 
 impl Metrics for AppMetrics<'_> {
     fn advance(&self, face: &Face, size: f32, ch: char) -> f32 {
-        let key = (family(face), size.to_bits(), ch);
+        let key = (family(face, self.ctx), size.to_bits(), ch);
         if let Some(w) = self.widths.borrow().get(&key) {
             return *w;
         }
-        let id = font_id(face, size);
+        let id = font_id(face, size, self.ctx);
         let w = self.ctx.fonts_mut(|f| f.glyph_width(&id, ch)) / PX_PER_PT;
         self.widths.borrow_mut().insert(key, w);
         w
     }
 
     fn vertical(&self, face: &Face, size: f32) -> (f32, f32) {
-        let key = (family(face), size.to_bits());
+        let key = (family(face, self.ctx), size.to_bits());
         if let Some(v) = self.vertical.borrow().get(&key) {
             return *v;
         }
-        let id = font_id(face, size);
+        let id = font_id(face, size, self.ctx);
         let galley = self
             .ctx
             .fonts_mut(|f| f.layout_no_wrap("Hg".to_owned(), id.clone(), Color32::BLACK));
@@ -329,7 +327,7 @@ pub fn paint(
 /// Draws text so that its baseline sits at `baseline.y`.
 fn draw_text(ui: &egui::Ui, text: &str, look: &Look, baseline: Pos2, scale: f32, colour: Color32) {
     let format = TextFormat {
-        font_id: FontId::new(look.size * scale, family(&look.face)),
+        font_id: FontId::new(look.size * scale, family(&look.face, ui.ctx())),
         color: colour,
         italics: look.face.italic,
         ..Default::default()

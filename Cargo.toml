@@ -12,11 +12,12 @@ repository = "https://github.com/hvpathak/HarshPad"
 harshpad-core = { path = "crates/core" }
 harshpad-rich = { path = "crates/rich" }
 harshpad-layout = { path = "crates/layout" }
-# The Writer is WordCraft (MIT OR Apache-2.0), pinned; `get their update` bumps this rev.
-wordcraft-engine = { git = "https://github.com/storytold/wordcraft", rev = "117aea31a8e61bd3e306e9210800cdc42897e3c1" }
-wordcraft-ui-egui = { git = "https://github.com/storytold/wordcraft", rev = "117aea31a8e61bd3e306e9210800cdc42897e3c1" }
-wordcraft-proof = { git = "https://github.com/storytold/wordcraft", rev = "117aea31a8e61bd3e306e9210800cdc42897e3c1" }
-wordcraft-fonts = { git = "https://github.com/storytold/wordcraft", rev = "117aea31a8e61bd3e306e9210800cdc42897e3c1" }
+# The Writer is WordCraft (MIT OR Apache-2.0), from the harshpad branch of our fork (WordCraft plus
+# HarshPad's embedding options), pinned; `get their update` merges upstream there and bumps this rev.
+wordcraft-engine = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be5105082e6c2960410a59a6954e5a66d5ebc" }
+wordcraft-ui-egui = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be5105082e6c2960410a59a6954e5a66d5ebc" }
+wordcraft-proof = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be5105082e6c2960410a59a6954e5a66d5ebc" }
+wordcraft-fonts = { git = "https://github.com/hvpathak/wordcraft", rev = "f66be5105082e6c2960410a59a6954e5a66d5ebc" }
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "links"] }
 rfd = "0.17"
 

@@ -23,6 +23,10 @@ pub struct WriterTab {
     prefs_checked: Instant,
 }
 
+/// Help in the Writer opens HarshPad's page; Feedback opens its issues.
+pub const HELP_URL: &str = "https://github.com/hvpathak/HarshPad#readme";
+pub const FEEDBACK_URL: &str = "https://github.com/hvpathak/HarshPad/issues";
+
 fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
     Services {
         file_dialog: Some(file_dialog),
@@ -35,6 +39,12 @@ fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
         set_clipboard_html: Some(Box::new(clipboard::set_html)),
         clipboard_rtf: Some(Box::new(clipboard::rtf)),
         clipboard_formats: Some(Box::new(clipboard::formats)),
+        // HarshPad's own pages instead of WordCraft's community, and a light/dark switch
+        // where WordCraft shows the account button.
+        help_url: Some(HELP_URL.into()),
+        community_url: Some(FEEDBACK_URL.into()),
+        hide_community: true,
+        theme_switch: true,
         ..Default::default()
     }
 }

@@ -8,15 +8,24 @@ never their code.
 
 ## How updates reach HarshPad
 
-1. **Upstream radar** (`.github/workflows/upstream-radar.yml`) runs every Monday. It snapshots their
-   README, roadmap, gaps and parity documents into `.radar/`, and opens a `radar` issue listing every new
-   heading, bullet, table row or release note.
-2. **Triage** each item with the map below: it names the one HarshPad module the feature belongs in.
-3. **Build it clean-room** from the behaviour description and public specifications (ECMA-376 for
-   `.docx`, ISO 32000 for PDF), with tests, then tick the item off in the issue.
-4. **Shared libraries** (for example `hayro` for PDF rendering and `krilla` for PDF writing, which
-   PdfCraft and WordCraft also build on) update through Dependabot pull requests, tested by CI on
-   every platform.
+Writer Studio *is* WordCraft, and PDF Studio will be PdfCraft. Both are used under their open-source
+licenses from forks on our GitHub ([hvpathak/wordcraft](https://github.com/hvpathak/wordcraft),
+[hvpathak/pdfcraft](https://github.com/hvpathak/pdfcraft)), on a `harshpad` branch that adds only
+HarshPad's touches: Help and Feedback go to this project, no community or account buttons, and a
+light/dark switch.
+
+**"Get their update"** = `pwsh scripts/get-their-update.ps1` (`-Project pdfcraft` for PDF Studio):
+
+1. merges their latest `main` into our `harshpad` branch;
+2. **guards it**: if their update added a community, Discord, account or upstream-website link, the
+   script stops and lists them, so they are hidden before anything ships
+   (the known ones are in `scripts/upstream-guard-<project>.json`);
+3. pushes the fork and moves HarshPad's pinned revision to it.
+
+Then `cargo test --workspace`, CI on Windows, macOS and Linux, and a release. GitHub Actions is
+switched off on the forks, so their own workflows never run (or email) from our account.
+
+The weekly upstream radar still watches their feature notes and opens an issue when there's news.
 
 ## Feature map
 
