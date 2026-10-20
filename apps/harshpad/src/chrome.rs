@@ -189,6 +189,25 @@ pub fn title_bar(
     let text_colour = ui.visuals().text_color();
     let weak = ui.visuals().weak_text_color();
     painter.rect_filled(rect, 0.0, bar);
+    // Decorative flourishes in the empty space before the window buttons: light lines on
+    // dark, dark lines on light, faint enough to stay in the background.
+    let art_right = rect.right() - if macos() { 0.0 } else { CONTROL_W * 3.0 } - MENU_W - 12.0;
+    let art = Rect::from_min_max(
+        pos2(
+            (art_right - 560.0).max(rect.left() + rect.width() * 0.45),
+            rect.top(),
+        ),
+        pos2(art_right, rect.bottom()),
+    );
+    flourish(
+        &painter,
+        art,
+        if dark {
+            Color32::from_white_alpha(30)
+        } else {
+            Color32::from_black_alpha(26)
+        },
+    );
 
     let left = rect.left() + if macos() { 78.0 } else { 8.0 };
     let controls = if macos() { 0.0 } else { CONTROL_W * 3.0 };
@@ -581,6 +600,76 @@ pub fn title_bar(
         }
     }
     events
+}
+
+/// Flowing waves with curls at their crests, fading in from the left edge of `area`.
+fn flourish(painter: &egui::Painter, area: Rect, colour: Color32) {
+    use egui::epaint::CubicBezierShape;
+    if area.width() < 60.0 {
+        return;
+    }
+    let h = area.height();
+    let mid = area.center().y + 2.0;
+    let step = 70.0;
+    let count = (area.width() / step).ceil() as usize;
+    for i in 0..count {
+        let x = area.left() + i as f32 * step;
+        // Fade in from the left so the art starts softly.
+        let fade = ((i as f32 + 1.0) / 3.0).min(1.0);
+        let c = colour.gamma_multiply(fade);
+        let up = if i % 2 == 0 { -1.0 } else { 1.0 };
+        let stroke = Stroke::new(1.3_f32, c);
+        // The main wave.
+        painter.add(CubicBezierShape::from_points_stroke(
+            [
+                pos2(x, mid),
+                pos2(x + step * 0.3, mid + up * h * 0.42),
+                pos2(x + step * 0.7, mid + up * h * 0.42),
+                pos2(x + step, mid),
+            ],
+            false,
+            Color32::TRANSPARENT,
+            stroke,
+        ));
+        // A curl at the crest, spiralling in.
+        let cx = x + step * 0.5;
+        let cy = mid + up * h * 0.22;
+        let r = h * 0.16;
+        painter.add(CubicBezierShape::from_points_stroke(
+            [
+                pos2(cx - r, cy),
+                pos2(cx - r, cy - up * r * 1.3),
+                pos2(cx + r, cy - up * r * 1.3),
+                pos2(cx + r, cy),
+            ],
+            false,
+            Color32::TRANSPARENT,
+            Stroke::new(1.1_f32, c),
+        ));
+        painter.add(CubicBezierShape::from_points_stroke(
+            [
+                pos2(cx + r, cy),
+                pos2(cx + r, cy + up * r * 0.9),
+                pos2(cx - r * 0.3, cy + up * r * 0.9),
+                pos2(cx - r * 0.3, cy + up * r * 0.1),
+            ],
+            false,
+            Color32::TRANSPARENT,
+            Stroke::new(1.0_f32, c),
+        ));
+        // A thin echo of the wave, for depth.
+        painter.add(CubicBezierShape::from_points_stroke(
+            [
+                pos2(x, mid - up * h * 0.18),
+                pos2(x + step * 0.35, mid - up * h * 0.38),
+                pos2(x + step * 0.65, mid - up * h * 0.38),
+                pos2(x + step, mid - up * h * 0.18),
+            ],
+            false,
+            Color32::TRANSPARENT,
+            Stroke::new(0.7_f32, c.gamma_multiply(0.7)),
+        ));
+    }
 }
 
 /// A horizontal fade from transparent to `fill`, over the end of a clipped title.

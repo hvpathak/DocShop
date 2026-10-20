@@ -21,6 +21,10 @@ pub struct Settings {
     /// The welcome card shows at every start until `Don't show this again`.
     #[serde(default)]
     pub hide_welcome: bool,
+    /// Where the window was when HarshPad last closed: x, y, width, height (points), and
+    /// whether it was maximized. It comes back there after the start-up card.
+    #[serde(default)]
+    pub window: Option<([f32; 4], bool)>,
 }
 
 impl Default for Settings {
@@ -32,6 +36,7 @@ impl Default for Settings {
             ruler: true,
             path: None,
             hide_welcome: false,
+            window: None,
         }
     }
 }

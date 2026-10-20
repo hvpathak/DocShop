@@ -253,6 +253,8 @@ pub struct StudioApp {
     last_autosave: Instant,
     /// For Writer tabs, which need it to set up their dialogs and theme.
     ctx: egui::Context,
+    /// The start-up card, until the editors have loaded.
+    splash: Option<crate::splash::Splash>,
     /// Files Finder asks us to open (macOS).
     #[cfg(target_os = "macos")]
     finder: Option<fmv_macos_events::Inbox>,
@@ -285,6 +287,7 @@ impl StudioApp {
             pending_input: Vec::new(),
             last_autosave: Instant::now(),
             ctx: cc.egui_ctx.clone(),
+            splash: Some(crate::splash::Splash::new(&cc.egui_ctx, crate::ICON_PNG)),
             #[cfg(target_os = "macos")]
             finder: None,
         };
@@ -2299,6 +2302,25 @@ impl eframe::App for StudioApp {
         // Writer and PDF tabs install their own fonts; keep HarshPad's symbols and bold.
         fonts::ensure(ctx);
         self.handle_close_request(ctx);
+        // The start-up card fills the small window on its own, like the installed word
+        // processor's. The editors are already created underneath but not drawn yet: drawing a
+        // Writer page under the card shrank the card for a few frames.
+        let status = match self.kind() {
+            TabKind::Doc => "Starting Writer Studio",
+            TabKind::Pdf => "Starting PDF Studio",
+            TabKind::Text => "Starting HarshPad Studio",
+        };
+        let last = self.settings.window;
+        if let Some(splash) = self.splash.as_mut() {
+            let done = egui::CentralPanel::default()
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| splash.show(ui, status, last))
+                .inner;
+            if done {
+                self.splash = None;
+            }
+            return;
+        }
         self.handle_dropped_files(ctx);
         #[cfg(target_os = "macos")]
         if let Some(inbox) = &self.finder {
@@ -2399,10 +2421,38 @@ impl eframe::App for StudioApp {
         if let Some(act) = act {
             self.run_act(act, ctx);
         }
+        // Remember where the window is, to come back there next time.
+        if self.splash.is_none() {
+            let (rect, maximized, minimized) = ctx.input(|i| {
+                let v = i.viewport();
+                (
+                    v.outer_rect,
+                    v.maximized.unwrap_or(false),
+                    v.minimized.unwrap_or(false),
+                )
+            });
+            // Only real working sizes: right after the start-up card the window is still small.
+            if let Some(r) =
+                rect.filter(|r| !minimized && r.width() >= 560.0 && r.height() >= 380.0)
+            {
+                self.settings.window = if maximized {
+                    // Keep the normal size to return to when un-maximized.
+                    Some((
+                        self.settings
+                            .window
+                            .map_or([r.left(), r.top(), r.width(), r.height()], |(g, _)| g),
+                        true,
+                    ))
+                } else {
+                    Some(([r.left(), r.top(), r.width(), r.height()], false))
+                };
+            }
+        }
         chrome::border(ctx);
     }
 
     fn on_exit(&mut self) {
+        self.settings.save();
         for tab in &mut self.tabs {
             if let Content::Writer(w) = &mut tab.content {
                 w.save_prefs(true);

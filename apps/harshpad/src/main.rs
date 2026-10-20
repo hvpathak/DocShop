@@ -11,6 +11,7 @@ mod pdf_tab;
 mod recovery;
 mod ribbon;
 mod settings;
+mod splash;
 mod text_tab;
 mod wordcraft_host;
 mod writer_tab;
@@ -18,7 +19,7 @@ mod writer_tab;
 use std::path::PathBuf;
 
 /// Title bar and Alt+Tab icon. The .exe file icon is embedded by build.rs.
-const ICON_PNG: &[u8] = include_bytes!("../../../assets/icon-256.png");
+pub(crate) const ICON_PNG: &[u8] = include_bytes!("../../../assets/icon-256.png");
 
 fn main() -> eframe::Result {
     // `harshpad notes.txt report.docx form.pdf` opens each file in its own tab.
@@ -27,8 +28,9 @@ fn main() -> eframe::Result {
     let mut viewport = eframe::egui::ViewportBuilder::default()
         .with_title(app::APP_NAME)
         .with_app_id("harshpad")
-        .with_inner_size([1100.0, 760.0])
-        .with_min_inner_size([480.0, 320.0])
+        // Opens as the start-up card; grows to its working size once everything is loaded.
+        .with_inner_size(splash::SPLASH_SIZE)
+        .with_min_inner_size(splash::SPLASH_SIZE)
         .with_drag_and_drop(true);
     // Tabs live in the title bar, like a web browser. On macOS the system's
     // window buttons stay and the content extends under them.
@@ -49,6 +51,10 @@ fn main() -> eframe::Result {
     #[allow(unused_mut)]
     let mut options = eframe::NativeOptions {
         viewport,
+        centered: true,
+        // HarshPad opens as the start-up card and sizes the window itself, so eframe must not
+        // restore the last window size (PdfCraft switches eframe's persistence on).
+        persist_window: false,
         ..Default::default()
     };
     // The GPU setup WordCraft uses: DirectX 12 where it works, OpenGL otherwise (Windows),

@@ -34,6 +34,11 @@
   <img src="docs/images/studio.png" alt="HarshPad with a Writer tab open: browser-style tabs in the title bar, then the full word-processor ribbon (File, Home, Insert, Draw, Design, Layout, References, Mailings, Review, View, Developer, Zotero, Help) with Font, Paragraph, Styles and Editing groups, rulers, and a page with the heading Quarterly plan, bold and italic text, a bulleted list and a quote; the status bar reads Page 1 of 1, 25 words" width="100%">
 </p>
 
+<p align="center">
+  <img src="docs/images/splash.png" alt="The start-up card: a small window with the HarshPad 0.7.0 badge, the logo, HarshPad Studio, the three apps Notepad, Writer Studio and PDF Studio, and Starting Writer Studio at the bottom" width="420"><br>
+  <sub>HarshPad opens as a small start-up card, then grows to where you left the window last time.</sub>
+</p>
+
 ---
 
 ## For Harshal: the growing path
