@@ -1,0 +1,321 @@
+//! Character and paragraph styles.
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Rgb(pub u8, pub u8, pub u8);
+
+impl Rgb {
+    /// "RRGGBB", as Word files and the web write colours.
+    pub fn to_hex(self) -> String {
+        format!("{:02X}{:02X}{:02X}", self.0, self.1, self.2)
+    }
+
+    pub fn from_hex(s: &str) -> Option<Rgb> {
+        let s = s.trim_start_matches('#');
+        if s.len() != 6 || !s.is_ascii() {
+            return None;
+        }
+        let byte = |i: usize| s.get(i..i + 2).and_then(|h| u8::from_str_radix(h, 16).ok());
+        Some(Rgb(byte(0)?, byte(2)?, byte(4)?))
+    }
+}
+
+/// How a run of characters looks. `None` means "use the paragraph's default".
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub struct CharStyle {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub bold: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub italic: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub underline: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub strike: bool,
+    /// Font size in points.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<Rgb>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub highlight: Option<Rgb>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    /// Inline code.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub code: bool,
+    /// Font family name; `None` uses the document's body font.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font: Option<String>,
+    #[serde(default, skip_serializing_if = "is_normal")]
+    pub baseline: Baseline,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub all_caps: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub small_caps: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub double_strike: bool,
+    /// Extra space between letters, in twentieths of a point (negative = condensed).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub spacing: i16,
+}
+
+/// Superscript and subscript.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum Baseline {
+    #[default]
+    Normal,
+    Super,
+    Sub,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+fn is_normal(b: &Baseline) -> bool {
+    *b == Baseline::Normal
+}
+
+fn is_zero(n: &i16) -> bool {
+    *n == 0
+}
+
+/// Twentieths of a point ("twips"), the unit .docx files use for spacing and indents.
+pub const TWIPS_PER_POINT: i32 = 20;
+
+/// Fonts offered in the font list. Each maps to an installed family when one exists,
+/// otherwise to the closest built-in look (serif, sans or mono).
+pub const FONT_FAMILIES: [&str; 12] = [
+    "Calibri",
+    "Arial",
+    "Helvetica",
+    "Segoe UI",
+    "Verdana",
+    "Times New Roman",
+    "Georgia",
+    "Cambria",
+    "Garamond",
+    "Courier New",
+    "Consolas",
+    "Comic Sans MS",
+];
+
+/// Font sizes offered in the size list, in points.
+pub const FONT_SIZES: [u16; 16] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum ParaStyle {
+    #[default]
+    Normal,
+    Title,
+    Heading1,
+    Heading2,
+    Heading3,
+    Quote,
+    Code,
+    Bullet,
+    Numbered,
+}
+
+impl ParaStyle {
+    pub const ALL: [ParaStyle; 9] = [
+        ParaStyle::Normal,
+        ParaStyle::Title,
+        ParaStyle::Heading1,
+        ParaStyle::Heading2,
+        ParaStyle::Heading3,
+        ParaStyle::Quote,
+        ParaStyle::Code,
+        ParaStyle::Bullet,
+        ParaStyle::Numbered,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            ParaStyle::Normal => "Normal",
+            ParaStyle::Title => "Title",
+            ParaStyle::Heading1 => "Heading 1",
+            ParaStyle::Heading2 => "Heading 2",
+            ParaStyle::Heading3 => "Heading 3",
+            ParaStyle::Quote => "Quote",
+            ParaStyle::Code => "Code",
+            ParaStyle::Bullet => "Bulleted list",
+            ParaStyle::Numbered => "Numbered list",
+        }
+    }
+
+    /// Default font size in points.
+    pub fn size(self) -> u16 {
+        match self {
+            ParaStyle::Title => 26,
+            ParaStyle::Heading1 => 20,
+            ParaStyle::Heading2 => 16,
+            ParaStyle::Heading3 => 13,
+            ParaStyle::Code => 10,
+            _ => 11,
+        }
+    }
+
+    pub fn is_heading(self) -> bool {
+        matches!(
+            self,
+            ParaStyle::Title | ParaStyle::Heading1 | ParaStyle::Heading2 | ParaStyle::Heading3
+        )
+    }
+
+    pub fn is_list(self) -> bool {
+        matches!(self, ParaStyle::Bullet | ParaStyle::Numbered)
+    }
+
+    /// The style a new paragraph gets after pressing Enter at the end of this one:
+    /// lists, quotes and code continue; headings return to Normal.
+    pub fn next(self) -> ParaStyle {
+        match self {
+            ParaStyle::Bullet | ParaStyle::Numbered | ParaStyle::Quote | ParaStyle::Code => self,
+            _ => ParaStyle::Normal,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum Align {
+    #[default]
+    Left,
+    Center,
+    Right,
+    Justify,
+}
+
+impl Align {
+    pub fn label(self) -> &'static str {
+        match self {
+            Align::Left => "Left",
+            Align::Center => "Center",
+            Align::Right => "Right",
+            Align::Justify => "Justify",
+        }
+    }
+}
+
+/// Space between the lines of a paragraph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LineSpacing {
+    /// A multiple of single spacing, in percent (100 = single, 150, 200 = double).
+    Multiple(u16),
+    /// At least this much, in twips.
+    AtLeast(u32),
+    /// Exactly this much, in twips.
+    Exactly(u32),
+}
+
+impl Default for LineSpacing {
+    fn default() -> Self {
+        LineSpacing::Multiple(100)
+    }
+}
+
+impl LineSpacing {
+    /// The line-spacing menu: single, 1.15, 1.5, double, 2.5, triple.
+    pub const PRESETS: [u16; 6] = [100, 115, 150, 200, 250, 300];
+
+    pub fn label(self) -> String {
+        match self {
+            LineSpacing::Multiple(p) => format!("{:.2}", f32::from(p) / 100.0)
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_owned(),
+            LineSpacing::AtLeast(t) => format!("At least {} pt", t / 20),
+            LineSpacing::Exactly(t) => format!("Exactly {} pt", t / 20),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub struct Paragraph {
+    pub style: ParaStyle,
+    #[serde(default)]
+    pub align: Align,
+    /// Indents in twips. `first_line` is relative to `left` (negative = hanging).
+    #[serde(default, skip_serializing_if = "is_zero32")]
+    pub indent_left: i32,
+    #[serde(default, skip_serializing_if = "is_zero32")]
+    pub indent_right: i32,
+    #[serde(default, skip_serializing_if = "is_zero32")]
+    pub first_line: i32,
+    /// Space before and after, in twips; `None` uses the style's default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub space_before: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub space_after: Option<u32>,
+    #[serde(default)]
+    pub line_spacing: LineSpacing,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub page_break_before: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub keep_with_next: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub keep_lines_together: bool,
+}
+
+fn is_zero32(n: &i32) -> bool {
+    *n == 0
+}
+
+impl Paragraph {
+    pub fn new(style: ParaStyle) -> Self {
+        Self {
+            style,
+            ..Self::default()
+        }
+    }
+
+    /// Space before, in twips, falling back to the style's default.
+    pub fn before(&self) -> u32 {
+        self.space_before.unwrap_or(match self.style {
+            ParaStyle::Title => 0,
+            ParaStyle::Heading1 => 480,
+            ParaStyle::Heading2 | ParaStyle::Heading3 => 200,
+            _ => 0,
+        })
+    }
+
+    /// Space after, in twips, falling back to the style's default.
+    pub fn after(&self) -> u32 {
+        self.space_after.unwrap_or(match self.style {
+            ParaStyle::Bullet | ParaStyle::Numbered | ParaStyle::Code => 0,
+            ParaStyle::Title => 160,
+            _ => 160,
+        })
+    }
+
+    /// The left indent lists get when none is set, so the marker has room.
+    pub fn effective_left(&self) -> i32 {
+        if self.indent_left == 0 && self.style.is_list() {
+            720
+        } else if self.indent_left == 0 && self.style == ParaStyle::Quote {
+            432
+        } else {
+            self.indent_left
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hex_colours_round_trip_and_reject_junk() {
+        assert_eq!(Rgb(255, 0, 128).to_hex(), "FF0080");
+        assert_eq!(Rgb::from_hex("#ff0080"), Some(Rgb(255, 0, 128)));
+        assert_eq!(Rgb::from_hex("auto"), None);
+        assert_eq!(Rgb::from_hex("ééé"), None);
+    }
+
+    #[test]
+    fn enter_continues_lists_but_not_headings() {
+        assert_eq!(ParaStyle::Bullet.next(), ParaStyle::Bullet);
+        assert_eq!(ParaStyle::Heading1.next(), ParaStyle::Normal);
+    }
+}

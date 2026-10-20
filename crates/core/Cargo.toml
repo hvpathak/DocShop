@@ -1,0 +1,12 @@
+[package]
+name = "harshpad-core"
+description = "Engine for DocShop: documents, search and the command catalog. No UI code."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[lints]
+workspace = true

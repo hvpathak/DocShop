@@ -1,0 +1,13 @@
+[package]
+name = "harshpad-cli"
+description = "Headless DocShop: inspect and edit text files from scripts and agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+harshpad-core.workspace = true
+harshpad-rich.workspace = true
+
+[lints]
+workspace = true

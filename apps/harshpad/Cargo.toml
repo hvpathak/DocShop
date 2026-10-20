@@ -1,0 +1,49 @@
+[package]
+name = "harshpad"
+description = "DocShop: one place for all your documents (NoteShop, WordShop, PDFShop)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+harshpad-core.workspace = true
+harshpad-layout = { workspace = true }
+harshpad-rich.workspace = true
+wordcraft-engine.workspace = true
+wordcraft-ui-egui.workspace = true
+wordcraft-proof.workspace = true
+wordcraft-fonts.workspace = true
+pdfcraft-ui-egui.workspace = true
+pdfcraft-engine.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+eframe.workspace = true
+egui = "0.36"
+rfd.workspace = true
+arboard = { version = "3.6", default-features = false, features = ["image-data"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+log = "0.4"
+pollster = "0.4"
+craft-print = { git = "https://github.com/hvpathak/craft-libs", rev = "d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d" }
+
+# The WordCraft host services (wordcraft_host), with the same platform crates WordCraft's app uses.
+[target.'cfg(target_os = "macos")'.dependencies]
+fmv-macos-events = "=0.1.0"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility", "NSApplication", "NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSPasteboard"] }
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+winit = { version = "0.30", default-features = false, features = ["x11"] }
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+wl-clipboard-rs = "0.9"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = ["UI_ViewManagement", "System_UserProfile"] }
+clipboard-win = { version = "5.4", features = ["std"] }
+
+[build-dependencies]
+winresource = "0.1"
+
+[lints]
+workspace = true

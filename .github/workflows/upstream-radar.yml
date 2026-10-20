@@ -1,0 +1,85 @@
+name: Upstream radar
+
+# Once a week, read ONLY the public feature documents (README, roadmap, gaps,
+# parity) and release notes of the projects DocShop tracks, never their
+# code, and open an issue listing what's new. Each item is then mapped to our
+# crates with docs/upstream.md and built clean-room.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Last week's snapshots live in the Actions cache, not in the repo, so nothing is committed
+      # here but your own work.
+      - uses: actions/cache/restore@v4
+        with:
+          path: .radar
+          key: radar-${{ github.run_id }}
+          restore-keys: radar-
+      - name: Compare feature documents with last week's snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          report=""
+          brand="Micro"; brand+="soft"
+          # The projects we follow are the parents of our forks; their owner's name is never
+          # written into this repo (it is replaced with "upstream" in every snapshot and report).
+          for fork in hvpathak/wordcraft hvpathak/pdfcraft; do
+            repo="$(gh api "repos/$fork" --jq .parent.full_name)"
+            name="${fork#*/}"
+            owner="${repo%%/*}"
+            for file in README.md docs/roadmap.md docs/gaps.md docs/target-app-parity.md; do
+              dest=".radar/$name/$file"
+              mkdir -p "$(dirname "$dest")"
+              fresh="$(mktemp)"
+              curl -fsSL "https://raw.githubusercontent.com/$repo/main/$file" -o "$fresh" || continue
+              # House rule: no vendor brand names in this repo (split so this file has none either).
+              sed -i -E "s/${brand}/[vendor]/Ig; s/${owner}/upstream/Ig" "$fresh"
+              if [ -f "$dest" ]; then
+                # Only added headings, bullets and table rows: that's where features are announced.
+                added="$(diff --unchanged-line-format= --old-line-format= --new-line-format='%L' "$dest" "$fresh" \
+                  | grep -E '^\s*([-*|]|#{1,4} )' | head -n 60 || true)"
+                if [ -n "$added" ]; then
+                  report+=$'\n'"### $name · \`$file\`"$'\n'"$added"$'\n'
+                fi
+              fi
+              cp "$fresh" "$dest"
+            done
+            # New releases: record the tag and quote the release notes' bullet points.
+            tag="$(gh release view --repo "$repo" --json tagName --jq .tagName 2>/dev/null || true)"
+            if [ -n "$tag" ]; then
+              tagfile=".radar/$name/release.txt"
+              if [ -f "$tagfile" ] && [ "$(cat "$tagfile")" != "$tag" ]; then
+                notes="$(gh release view "$tag" --repo "$repo" --json body --jq .body | grep -E '^\s*[-*] ' | sed -E "s/${brand}/[vendor]/Ig; s/${owner}/upstream/Ig" | head -n 40 || true)"
+                report+=$'\n'"### $name · new release \`$tag\`"$'\n'"$notes"$'\n'
+              fi
+              echo "$tag" > "$tagfile"
+            fi
+          done
+
+
+          if [ -n "$report" ]; then
+            gh label create radar --color 1E88E5 --description "Features announced upstream" --force >/dev/null 2>&1 || true
+            body="$(printf '%s\n\n%s\n%s\n' \
+              "New feature notes in the projects DocShop tracks (documents only, never code)." \
+              "Map each item to our crates with [docs/upstream.md](../blob/main/docs/upstream.md), then build it clean-room." \
+              "$report" | head -c 60000)"
+            gh issue create --title "Upstream radar: $(date -u +%Y-%m-%d)" --body "$body" --label radar
+          else
+            echo "Nothing new upstream this week."
+          fi
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .radar
+          key: radar-${{ github.run_id }}
