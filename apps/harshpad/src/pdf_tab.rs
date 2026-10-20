@@ -1,4 +1,4 @@
-//! A PDF Studio tab: the PdfCraft editor (github.com/storytold/pdfcraft, MIT OR
+//! A PDF Studio tab: the PdfCraft editor (github.com/hvpathak/pdfcraft, MIT OR
 //! Apache-2.0) hosted inside a HarshPad tab, one PDF per tab. PdfCraft draws its own
 //! toolbars, panels and pages into the area the tab gives it; HarshPad's tabs replace
 //! its tab strip, and its community links point to HarshPad's page (see the

@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Notepad + Writer Studio + PDF Studio: one suite, one window, browser-style tabs.</b><br>
-  Writer Studio is <a href="https://github.com/storytold/wordcraft">WordCraft</a>, built in. Plain text, <code>.docx</code>, <code>.doc</code>, <code>.odt</code>, <code>.rtf</code>, Markdown.<br>
+  Writer Studio is <a href="https://github.com/hvpathak/wordcraft">WordCraft</a>, built in. Plain text, <code>.docx</code>, <code>.doc</code>, <code>.odt</code>, <code>.rtf</code>, Markdown.<br>
   No installer, no account, no telemetry. Windows, macOS and Linux.
 </p>
 
@@ -78,8 +78,12 @@ Where each chapter stands on its way to 100% of the projects we follow: **[Road 
   switches off shows greyed out; on Harshal's growing path a locked one says which chapter unlocks it.
 - **Tabs live in the title bar**, each with its app's colour icon. Drag to reorder, middle-click or <kbd>Ctrl+W</kbd> to
   close, <kbd>Ctrl+Tab</kbd> to cycle, <kbd>Ctrl+1</kbd>…<kbd>Ctrl+8</kbd> to jump. A dot marks unsaved work.
-- **⌄ menu:** the three apps, Open a file…, search your open tabs, and recently closed tabs
-  (<kbd>Ctrl+Shift+T</kbd> brings the last one back, unsaved text included).
+- **Split view, like a web browser:** right-click a tab → *Split view with…* to put two tabs of the same kind
+  (two documents, two PDFs, two notes) side by side. Click a side to work in it (blue outline); drag the
+  middle to resize; the × in a side's bottom-right corner takes it out of the split.
+- **Close the last tab** and the window asks what to open next: Notepad, Writer Studio, PDF Studio or a file.
+  <kbd>Ctrl+Shift+T</kbd> brings the last closed tab back, unsaved text included.
+- **Indian border art** (paisleys and lotuses) runs along the title bar, gold on dark and maroon on light.
 - **Each tab shows only its own app.** A Notepad tab has the Notepad's tools; a Writer Studio tab has the full
   word-processor ribbon; a PDF Studio tab has the PDF tools. Nothing mixes.
 
@@ -102,7 +106,7 @@ current mode says so instead of opening.
   <img src="docs/images/writer.png" alt="The Writer File screen inside a HarshPad tab: Home, New, Open, Info, Recover, Save, Save As, Print, Export, Close and Options on the left; Good afternoon with templates for a blank document, a studio handbook, a letter and a résumé; and a Recent list with Quarterly plan.docx" width="100%">
 </p>
 
-Every Writer Studio tab is **[WordCraft](https://github.com/storytold/wordcraft)**, the open-source word
+Every Writer Studio tab is **[WordCraft](https://github.com/hvpathak/wordcraft)**, the open-source word
 processor, running inside HarshPad. That's the whole of it, not a subset: the full ribbon and command
 catalog, styles and themes, tables, page layout and sections, headers and footers, footnotes,
 references and citations, comments, track changes, compare, proofing, mail merge, pictures, shapes,
@@ -121,7 +125,7 @@ which adds HarshPad's touches: Help and Feedback go to this project, no communit
   <img src="docs/images/pdf.png" alt="A PDF Studio tab with a red PDF icon: the PDF tools (All tools, Read, Edit, Convert, E-Sign), a tools list with Export, Fill and Sign, Edit, Create, Combine, Organize pages, Add comments, Scan and OCR, Protect, Redact, Compress, Prepare a form and Add a stamp, the page 'Harshal's Report', and side panels with zoom" width="100%">
 </p>
 
-Every PDF Studio tab is **[PdfCraft](https://github.com/storytold/pdfcraft)**, the open-source PDF editor, running
+Every PDF Studio tab is **[PdfCraft](https://github.com/hvpathak/pdfcraft)**, the open-source PDF editor, running
 inside HarshPad: read with sharp zoom, search and copy text; edit text and images; organize, insert, extract,
 split and combine pages; comment and highlight; fill and sign forms; create, export and compress PDFs; protect,
 redact, OCR and more. Its own tab strip steps aside for HarshPad's tabs (one PDF per tab), it keeps its light/dark

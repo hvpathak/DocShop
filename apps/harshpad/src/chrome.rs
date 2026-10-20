@@ -17,7 +17,6 @@ const TAB_TOP: f32 = 7.0;
 const MAX_TAB_W: f32 = 240.0;
 const MIN_TAB_W: f32 = 56.0;
 const PLUS_W: f32 = 36.0;
-const MENU_W: f32 = 36.0;
 const CONTROL_W: f32 = 46.0;
 
 pub struct TabInfo {
@@ -25,6 +24,10 @@ pub struct TabInfo {
     pub icon: AppIcon,
     pub dirty: bool,
     pub tooltip: String,
+    /// Tabs that can share a split view have the same family (Notepad, Writer, PDF…).
+    pub family: u8,
+    /// Shown in the split view right now (with the active tab).
+    pub split: bool,
 }
 
 /// Whether a kind can be opened from the + menu.
@@ -53,11 +56,14 @@ pub enum Event {
     },
     New(TabKind),
     Open,
-    Reopen(usize),
     /// A choice the growing path hasn't unlocked yet (its chapter).
     Locked(u8),
     /// A choice the current mode has switched off.
     Off,
+    /// Show these two tabs side by side (the first stays active).
+    Split(usize, usize),
+    /// Back to one tab at a time.
+    Unsplit,
 }
 
 fn macos() -> bool {
@@ -195,10 +201,10 @@ pub fn start_page(ui: &mut egui::Ui, offer: &Offer) -> Vec<Event> {
 }
 
 /// Where the caller's own control goes (the mode switch): `reserve` wide, just left of
-/// the ⌄ menu.
+/// the window buttons.
 pub fn mode_slot(rect: Rect, reserve: f32) -> Rect {
     let controls = if macos() { 0.0 } else { CONTROL_W * 3.0 };
-    let right = rect.right() - controls - MENU_W - 6.0;
+    let right = rect.right() - controls - 6.0;
     Rect::from_min_max(
         pos2(right - reserve, rect.top() + 4.0),
         pos2(right, rect.bottom()),
@@ -206,8 +212,7 @@ pub fn mode_slot(rect: Rect, reserve: f32) -> Rect {
 }
 
 /// Draws the bar and returns what the user did. `reserve` is kept free for [`mode_slot`].
-/// `open_picker` opens the new-tab choices (Ctrl+T); `search` is the ⌄ menu's filter.
-#[allow(clippy::too_many_arguments)]
+/// `open_picker` opens the new-tab choices (Ctrl+T).
 pub fn title_bar(
     ui: &mut egui::Ui,
     reserve: f32,
@@ -215,8 +220,6 @@ pub fn title_bar(
     active: usize,
     offer: &Offer,
     open_picker: bool,
-    search: &mut String,
-    closed: &[String],
 ) -> Vec<Event> {
     let mut events = Vec::new();
     let rect = ui.max_rect();
@@ -233,31 +236,29 @@ pub fn title_bar(
     let text_colour = ui.visuals().text_color();
     let weak = ui.visuals().weak_text_color();
     painter.rect_filled(rect, 0.0, bar);
-    // Decorative flourishes in the empty space before the window buttons: light lines on
-    // dark, dark lines on light, faint enough to stay in the background.
-    let art_right =
-        rect.right() - if macos() { 0.0 } else { CONTROL_W * 3.0 } - MENU_W - reserve - 12.0;
+    // Indian border art across the right of the bar, right to the edge behind the mode
+    // switch and window buttons: soft gold on dark, deep maroon on light.
     let art = Rect::from_min_max(
         pos2(
-            (art_right - 560.0).max(rect.left() + rect.width() * 0.45),
+            (rect.right() - 820.0).max(rect.left() + rect.width() * 0.4),
             rect.top(),
         ),
-        pos2(art_right, rect.bottom()),
+        rect.right_bottom(),
     );
     flourish(
         &painter,
         art,
         if dark {
-            Color32::from_white_alpha(30)
+            Color32::from_rgba_unmultiplied(226, 186, 96, 70)
         } else {
-            Color32::from_black_alpha(26)
+            Color32::from_rgba_unmultiplied(140, 36, 48, 56)
         },
     );
 
     let left = rect.left() + if macos() { 78.0 } else { 8.0 };
     let controls = if macos() { 0.0 } else { CONTROL_W * 3.0 };
     let n = tabs.len().max(1) as f32;
-    let room = (rect.right() - controls - MENU_W - reserve - PLUS_W - 60.0 - left).max(MIN_TAB_W);
+    let room = (rect.right() - controls - reserve - PLUS_W - 60.0 - left).max(MIN_TAB_W);
     let natural = (room / n).clamp(MIN_TAB_W, MAX_TAB_W);
     // Like a browser: after closing a tab with the mouse, widths hold still until
     // the pointer leaves the strip.
@@ -286,28 +287,30 @@ pub fn title_bar(
             .interact(r, Id::new(("chrome-tab", i)), Sense::click_and_drag())
             .on_hover_text(&tab.tooltip);
         let is_active = i == active;
+        // Both halves of a split view look selected, joined like one wide tab.
+        let shown = is_active || tab.split;
         let shape = CornerRadius {
             nw: 9,
             ne: 9,
             sw: 0,
             se: 0,
         };
-        let fill = if is_active {
+        let fill = if shown {
             active_fill
         } else if response.hovered() {
             hover_fill
         } else {
             bar
         };
-        if is_active || response.hovered() {
+        if shown || response.hovered() {
             painter.rect_filled(
-                r.shrink2(vec2(if is_active { 0.0 } else { 2.0 }, 0.0)),
+                r.shrink2(vec2(if shown { 0.0 } else { 2.0 }, 0.0)),
                 shape,
                 fill,
             );
         }
-        let next_active = i + 1 == active;
-        if !is_active && !next_active && i + 1 < tabs.len() && !response.hovered() {
+        let next_shown = i + 1 == active || tabs.get(i + 1).is_some_and(|t| t.split);
+        if !shown && !next_shown && i + 1 < tabs.len() && !response.hovered() {
             painter.line_segment(
                 [
                     pos2(r.right(), r.top() + 9.0),
@@ -381,6 +384,41 @@ pub fn title_bar(
             );
         }
 
+        // Right-click: split view with another tab of the same kind, like a web browser.
+        response.context_menu(|ui| {
+            if tab.split {
+                if ui.button("◫  Exit split view").clicked() {
+                    events.push(Event::Unsplit);
+                    ui.close();
+                }
+            } else {
+                ui.label(RichText::new("Split view with").strong());
+                let mut any = false;
+                for (j, other) in tabs.iter().enumerate() {
+                    if j == i || other.family != tab.family {
+                        continue;
+                    }
+                    any = true;
+                    if ui.button(format!("◫  {}", other.title)).clicked() {
+                        events.push(Event::Split(i, j));
+                        ui.close();
+                    }
+                }
+                if !any {
+                    ui.label(
+                        RichText::new(
+                            "Open another tab of the same kind to show them side by side",
+                        )
+                        .weak(),
+                    );
+                }
+            }
+            ui.separator();
+            if ui.button("Close tab").clicked() {
+                events.push(Event::Close(i));
+                ui.close();
+            }
+        });
         if close_response.clicked() || response.middle_clicked() {
             events.push(Event::Close(i));
             ctx.data_mut(|d| d.insert_temp(frozen_id, tab_w));
@@ -454,115 +492,10 @@ pub fn title_bar(
             new_tab_choices(ui, offer, &mut events);
         });
 
-    // ---- ⌄ menu before the window controls -----------------------------------------
-    let menu = Rect::from_center_size(
-        pos2(
-            rect.right() - controls - MENU_W / 2.0 - 4.0,
-            rect.center().y + 2.0,
-        ),
-        vec2(28.0, 28.0),
-    );
-    let menu_response = ui
-        .interact(menu, Id::new("chrome-menu"), Sense::click())
-        .on_hover_text("New tab as… · search tabs");
-    if menu_response.hovered() {
-        painter.circle_filled(menu.center(), 14.0, hover_fill);
-    }
-    let c = menu.center();
-    let chevron = Stroke::new(1.6_f32, text_colour);
-    painter.line_segment([pos2(c.x - 5.0, c.y - 2.5), pos2(c.x, c.y + 2.5)], chevron);
-    painter.line_segment([pos2(c.x, c.y + 2.5), pos2(c.x + 5.0, c.y - 2.5)], chevron);
-    let menu_id = Id::new("tab-menu");
-    if menu_response.clicked() {
-        egui::Popup::toggle_id(&ctx, menu_id);
-    }
-    egui::Popup::from_response(&menu_response)
-        .id(menu_id)
-        .open_memory(None)
-        .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
-        .show(|ui| {
-            ui.set_min_width(340.0);
-            ui.add_space(4.0);
-            ui.label(RichText::new("Open a new tab as…").strong());
-            ui.add_space(2.0);
-            new_tab_choices(ui, offer, &mut events);
-            ui.separator();
-            if card(
-                ui,
-                AppIcon::Folder,
-                "Open a file…",
-                "Text, documents and PDFs",
-                "Ctrl+O",
-                false,
-            ) {
-                events.push(Event::Open);
-                egui::Popup::close_all(ui.ctx());
-            }
-            ui.separator();
-            ui.add(
-                egui::TextEdit::singleline(search)
-                    .id(Id::new("tab-search"))
-                    .hint_text("🔍  Search tabs")
-                    .desired_width(310.0),
-            );
-            let query = search.to_lowercase();
-            ui.label(RichText::new("Open tabs").small().color(weak));
-            egui::ScrollArea::vertical()
-                .max_height(220.0)
-                .id_salt("tab-menu-list")
-                .show(ui, |ui| {
-                    for (i, tab) in tabs.iter().enumerate() {
-                        if !query.is_empty() && !tab.title.to_lowercase().contains(&query) {
-                            continue;
-                        }
-                        let label =
-                            format!("      {}{}", tab.title, if tab.dirty { "  ●" } else { "" });
-                        let row = ui.add(
-                            egui::Button::new(label)
-                                .selected(i == active)
-                                .min_size(vec2(310.0, 26.0)),
-                        );
-                        icons::paint(
-                            ui.painter(),
-                            Rect::from_center_size(
-                                pos2(row.rect.left() + 14.0, row.rect.center().y),
-                                vec2(16.0, 16.0),
-                            ),
-                            tab.icon,
-                            false,
-                        );
-                        if row.clicked() {
-                            events.push(Event::Select(i));
-                            egui::Popup::close_all(ui.ctx());
-                        }
-                    }
-                });
-            if !closed.is_empty() {
-                ui.label(RichText::new("Recently closed").small().color(weak));
-                for (i, title) in closed.iter().enumerate().rev().take(8) {
-                    if ui
-                        .add(
-                            egui::Button::new(format!("↺  {title}"))
-                                .shortcut_text(if i + 1 == closed.len() {
-                                    "Ctrl+Shift+T"
-                                } else {
-                                    ""
-                                })
-                                .min_size(vec2(310.0, 24.0)),
-                        )
-                        .clicked()
-                    {
-                        events.push(Event::Reopen(i));
-                        egui::Popup::close_all(ui.ctx());
-                    }
-                }
-            }
-        });
-
     // ---- Drag area and window controls -------------------------------------------------
     let drag = Rect::from_min_max(
         pos2(plus.right() + 6.0, rect.top()),
-        pos2(menu.left() - 6.0, rect.bottom()),
+        pos2(rect.right() - controls - reserve - 10.0, rect.bottom()),
     );
     if drag.width() > 0.0 {
         let response = ui.interact(drag, Id::new("chrome-drag"), Sense::click_and_drag());
@@ -647,73 +580,210 @@ pub fn title_bar(
     events
 }
 
-/// Flowing waves with curls at their crests, fading in from the left edge of `area`.
+/// Indian-style border art (like mehndi or a sari border): paisleys (kairi) and lotus
+/// flowers on a flowing vine, with rangoli dots and dotted edges. Fades in from the left of
+/// `area` so it starts softly behind the tabs.
 fn flourish(painter: &egui::Painter, area: Rect, colour: Color32) {
-    use egui::epaint::CubicBezierShape;
-    if area.width() < 60.0 {
+    if area.width() < 80.0 {
         return;
     }
     let h = area.height();
-    let mid = area.center().y + 2.0;
-    let step = 70.0;
-    let count = (area.width() / step).ceil() as usize;
+    let mid = area.center().y + 1.0;
+    let unit = 112.0;
+    let count = (area.width() / unit).ceil() as usize + 1;
+    let fade_at = |x: f32| ((x - area.left()) / 160.0).clamp(0.0, 1.0);
+    let painter = painter.with_clip_rect(area);
+    // Dotted edges, top and bottom, like the woven border of a sari.
+    let mut x = area.left() + 3.0;
+    while x < area.right() {
+        let c = colour.gamma_multiply(fade_at(x) * 0.8);
+        painter.circle_filled(pos2(x, area.top() + 4.0), 0.9, c);
+        painter.circle_filled(pos2(x, area.bottom() - 4.0), 0.9, c);
+        x += 7.0;
+    }
     for i in 0..count {
-        let x = area.left() + i as f32 * step;
-        // Fade in from the left so the art starts softly.
-        let fade = ((i as f32 + 1.0) / 3.0).min(1.0);
-        let c = colour.gamma_multiply(fade);
+        let x0 = area.left() + i as f32 * unit;
+        let c = colour.gamma_multiply(fade_at(x0 + unit / 2.0));
+        if c.a() == 0 {
+            continue;
+        }
         let up = if i % 2 == 0 { -1.0 } else { 1.0 };
-        let stroke = Stroke::new(1.3_f32, c);
-        // The main wave.
-        painter.add(CubicBezierShape::from_points_stroke(
+        // The vine: one gentle wave per unit, the paisley sits on its crest.
+        bezier(
+            &painter,
             [
-                pos2(x, mid),
-                pos2(x + step * 0.3, mid + up * h * 0.42),
-                pos2(x + step * 0.7, mid + up * h * 0.42),
-                pos2(x + step, mid),
+                pos2(x0, mid),
+                pos2(x0 + unit * 0.25, mid + up * h * 0.2),
+                pos2(x0 + unit * 0.5, mid + up * h * 0.2),
+                pos2(x0 + unit * 0.75, mid),
             ],
-            false,
-            Color32::TRANSPARENT,
+            Stroke::new(1.0_f32, c.gamma_multiply(0.8)),
+        );
+        bezier(
+            &painter,
+            [
+                pos2(x0 + unit * 0.75, mid),
+                pos2(x0 + unit * 0.85, mid - up * h * 0.06),
+                pos2(x0 + unit * 0.95, mid - up * h * 0.06),
+                pos2(x0 + unit, mid),
+            ],
+            Stroke::new(1.0_f32, c.gamma_multiply(0.8)),
+        );
+        // Small leaves along the vine.
+        for (lx, side) in [(0.12, 1.0), (0.62, -1.0)] {
+            let base = pos2(x0 + unit * lx, mid + up * h * 0.1);
+            petal(
+                &painter,
+                base,
+                base + vec2(7.0, side * up * -6.0),
+                2.6,
+                Stroke::new(0.9_f32, c),
+            );
+        }
+        paisley(
+            &painter,
+            pos2(x0 + unit * 0.37, mid - up * h * 0.02),
+            h * 0.3,
+            up,
+            c,
+        );
+        lotus(&painter, pos2(x0 + unit * 0.86, mid), h * 0.26, c);
+    }
+}
+
+fn bezier(painter: &egui::Painter, points: [egui::Pos2; 4], stroke: Stroke) {
+    painter.add(egui::epaint::CubicBezierShape::from_points_stroke(
+        points,
+        false,
+        Color32::TRANSPARENT,
+        stroke,
+    ));
+}
+
+/// A leaf or petal from `base` to `tip`, `width` wide at its middle.
+fn petal(painter: &egui::Painter, base: egui::Pos2, tip: egui::Pos2, width: f32, stroke: Stroke) {
+    let along = tip - base;
+    let side = vec2(-along.y, along.x).normalized() * width;
+    bezier(
+        painter,
+        [
+            base,
+            base + along * 0.3 + side,
+            tip - along * 0.25 + side * 0.6,
+            tip,
+        ],
+        stroke,
+    );
+    bezier(
+        painter,
+        [
+            base,
+            base + along * 0.3 - side,
+            tip - along * 0.25 - side * 0.6,
+            tip,
+        ],
+        stroke,
+    );
+}
+
+/// The kairi (mango) paisley: a rounded bulb whose tip curls over, with an inner echo and a
+/// dot. `flip` turns it upside down for the alternating pattern.
+fn paisley(painter: &egui::Painter, centre: egui::Pos2, size: f32, flip: f32, colour: Color32) {
+    let p = |x: f32, y: f32, k: f32| pos2(centre.x + x * size * k, centre.y + y * size * k * -flip);
+    for (k, width) in [(1.0, 1.2_f32), (0.55, 0.9)] {
+        let stroke = Stroke::new(width, colour);
+        // Tip, down the outer side, round the bulb, back up the inner side.
+        bezier(
+            painter,
+            [
+                p(0.55, -0.95, k),
+                p(1.05, -0.45, k),
+                p(0.85, 0.75, k),
+                p(0.0, 0.8, k),
+            ],
             stroke,
-        ));
-        // A curl at the crest, spiralling in.
-        let cx = x + step * 0.5;
-        let cy = mid + up * h * 0.22;
-        let r = h * 0.16;
-        painter.add(CubicBezierShape::from_points_stroke(
+        );
+        bezier(
+            painter,
             [
-                pos2(cx - r, cy),
-                pos2(cx - r, cy - up * r * 1.3),
-                pos2(cx + r, cy - up * r * 1.3),
-                pos2(cx + r, cy),
+                p(0.0, 0.8, k),
+                p(-0.85, 0.82, k),
+                p(-0.9, -0.05, k),
+                p(-0.4, -0.4, k),
             ],
-            false,
-            Color32::TRANSPARENT,
-            Stroke::new(1.1_f32, c),
-        ));
-        painter.add(CubicBezierShape::from_points_stroke(
+            stroke,
+        );
+        bezier(
+            painter,
             [
-                pos2(cx + r, cy),
-                pos2(cx + r, cy + up * r * 0.9),
-                pos2(cx - r * 0.3, cy + up * r * 0.9),
-                pos2(cx - r * 0.3, cy + up * r * 0.1),
+                p(-0.4, -0.4, k),
+                p(-0.1, -0.62, k),
+                p(0.25, -0.62, k),
+                p(0.55, -0.95, k),
             ],
-            false,
-            Color32::TRANSPARENT,
-            Stroke::new(1.0_f32, c),
-        ));
-        // A thin echo of the wave, for depth.
-        painter.add(CubicBezierShape::from_points_stroke(
-            [
-                pos2(x, mid - up * h * 0.18),
-                pos2(x + step * 0.35, mid - up * h * 0.38),
-                pos2(x + step * 0.65, mid - up * h * 0.38),
-                pos2(x + step, mid - up * h * 0.18),
-            ],
-            false,
-            Color32::TRANSPARENT,
-            Stroke::new(0.7_f32, c.gamma_multiply(0.7)),
-        ));
+            stroke,
+        );
+    }
+    // The curl at the tip.
+    bezier(
+        painter,
+        [
+            p(0.55, -0.95, 1.0),
+            p(0.5, -1.25, 1.0),
+            p(0.15, -1.2, 1.0),
+            p(0.2, -0.98, 1.0),
+        ],
+        Stroke::new(1.0_f32, colour),
+    );
+    painter.circle_filled(p(-0.05, 0.25, 1.0), size * 0.1, colour);
+    // Tiny dots around the bulb, as in mehndi.
+    for (x, y) in [
+        (-1.15, 0.2),
+        (-0.8, 1.05),
+        (0.0, 1.2),
+        (0.85, 1.0),
+        (1.2, 0.2),
+    ] {
+        painter.circle_filled(p(x, y, 1.0), 0.9, colour.gamma_multiply(0.8));
+    }
+}
+
+/// A lotus: five petals opening upwards from a small bowl, with rangoli dots beneath.
+fn lotus(painter: &egui::Painter, centre: egui::Pos2, size: f32, colour: Color32) {
+    let stroke = Stroke::new(1.1_f32, colour);
+    let base = centre + vec2(0.0, size * 0.55);
+    for (dx, dy, w) in [
+        (0.0, -1.15, 0.32),
+        (-0.55, -0.85, 0.28),
+        (0.55, -0.85, 0.28),
+        (-0.95, -0.25, 0.22),
+        (0.95, -0.25, 0.22),
+    ] {
+        petal(
+            painter,
+            base,
+            base + vec2(dx * size, dy * size),
+            w * size,
+            stroke,
+        );
+    }
+    // The bowl under the petals.
+    bezier(
+        painter,
+        [
+            base + vec2(-size * 0.75, -size * 0.05),
+            base + vec2(-size * 0.4, size * 0.35),
+            base + vec2(size * 0.4, size * 0.35),
+            base + vec2(size * 0.75, -size * 0.05),
+        ],
+        stroke,
+    );
+    for k in -1..=1 {
+        painter.circle_filled(
+            base + vec2(k as f32 * size * 0.35, size * 0.55),
+            if k == 0 { 1.4 } else { 1.0 },
+            colour.gamma_multiply(0.9),
+        );
     }
 }
 

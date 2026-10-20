@@ -14,7 +14,7 @@ use eframe::{
 /// Intel Macs (HD Graphics 5000 on Big Sur, #2652) Metal's Intel
 /// compiler aborts on them, the device is lost and eframe exits before the window opens. WordCraft
 /// issues no indirect draws or dispatches, so Intel Macs skip them; every other GPU keeps wgpu's
-/// default. Same fix as PhotoCraft's storytold/PhotoCraft#3171.
+/// default. Same fix PhotoCraft uses.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn skips_indirect_validation(macos: bool, intel: bool) -> bool {
     macos && intel

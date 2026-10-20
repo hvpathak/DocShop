@@ -12,6 +12,7 @@ mod recovery;
 mod ribbon;
 mod settings;
 mod splash;
+mod split;
 mod text_tab;
 mod wordcraft_host;
 mod writer_tab;

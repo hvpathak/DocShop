@@ -1,8 +1,8 @@
 # Following upstream
 
 HarshPad Studio combines a notepad, a writer and a PDF tool. Two open-source projects cover the
-writer and PDF areas in depth: [WordCraft](https://github.com/storytold/wordcraft) and
-[PdfCraft](https://github.com/storytold/pdfcraft). We follow what they announce so HarshPad keeps
+writer and PDF areas in depth: [WordCraft](https://github.com/hvpathak/wordcraft) and
+[PdfCraft](https://github.com/hvpathak/pdfcraft). We follow what they announce so HarshPad keeps
 improving, while staying **clean-room**: we read their public feature documents and release notes,
 never their code.
 

@@ -1,8 +1,8 @@
 # Road to 100%
 
 HarshPad grows in three chapters: **Notepad → Writer → PDF**. The Writer and PDF chapters aim for the
-full feature set of the two open-source projects we follow, [WordCraft](https://github.com/storytold/wordcraft)
-and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the distance, area by area.
+full feature set of the two open-source projects we follow, [WordCraft](https://github.com/hvpathak/wordcraft)
+and [PdfCraft](https://github.com/hvpathak/pdfcraft). This page tracks the distance, area by area.
 
 - **How it's measured:** each area gets a percentage for *depth*, not just presence: does it behave
   fully, with the options people expect? The chapter score is the weighted sum (weight = share of a typical
@@ -32,7 +32,7 @@ and [PdfCraft](https://github.com/storytold/pdfcraft). This page tracks the dist
 
 ## Chapter 2 · Writer
 
-Since v0.6 every Writer tab **is the WordCraft editor** (github.com/storytold/wordcraft, MIT OR
+Since v0.6 every Writer tab **is the WordCraft editor** (github.com/hvpathak/wordcraft, MIT OR
 Apache-2.0), pinned to an exact upstream commit and hosted inside HarshPad's tabs. So the Writer has
 **100% of WordCraft's features**: its full ribbon and command catalog, styles, tables, page layout and
 sections, headers/footers, footnotes, references and citations, review (comments, track changes,
@@ -57,7 +57,7 @@ WordCraft's latest, and HarshPad is rebuilt, tested on all platforms and release
 
 ## Chapter 3 · PDF
 
-Since v0.7 every PDF Studio tab **is the PdfCraft editor** (github.com/storytold/pdfcraft, MIT OR
+Since v0.7 every PDF Studio tab **is the PdfCraft editor** (github.com/hvpathak/pdfcraft, MIT OR
 Apache-2.0), from the `harshpad` branch of [our fork](https://github.com/hvpathak/pdfcraft), with its patched
 PDF renderer, parser and windowing applied the way its own workspace does. So PDF Studio has **100% of
 PdfCraft's features**: all 14 areas of its checklist (viewing, editing, organizing, comments, forms and

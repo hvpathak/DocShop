@@ -13,7 +13,7 @@
   "account initials": [],
   "upstream website": [],
   "upstream source": [
-    "updates.rs:15: pub const RELEASES_PAGE: &str = \"https://github.com/storytold/pdfcraft/releases\";"
+    "updates.rs:15: pub const RELEASES_PAGE: &str = \"https://github.com/<upstream>/pdfcraft/releases\";"
   ],
   "community wording": [
     "home.rs:44: ui.label(egui::RichText::new(tl!(\"Join the ArtCraft community\")).font(theme::semibold(15.0)));"

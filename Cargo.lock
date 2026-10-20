@@ -1178,12 +1178,12 @@ dependencies = [
 [[package]]
 name = "craft-docpath"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=82a24b006eefa036b43c09a67fb9a3fbd17ffe63#82a24b006eefa036b43c09a67fb9a3fbd17ffe63"
+source = "git+https://github.com/hvpathak/craft-libs?rev=82a24b006eefa036b43c09a67fb9a3fbd17ffe63#82a24b006eefa036b43c09a67fb9a3fbd17ffe63"
 
 [[package]]
 name = "craft-pdf"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=c3487320b2d1de657b860b3c8abb44e1f2b32bd8#c3487320b2d1de657b860b3c8abb44e1f2b32bd8"
+source = "git+https://github.com/hvpathak/craft-libs?rev=c3487320b2d1de657b860b3c8abb44e1f2b32bd8#c3487320b2d1de657b860b3c8abb44e1f2b32bd8"
 dependencies = [
  "krilla",
  "thiserror 2.0.21",
@@ -1192,7 +1192,15 @@ dependencies = [
 [[package]]
 name = "craft-print"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=666c358065261a2816b376fa3bb10538dbf53040#666c358065261a2816b376fa3bb10538dbf53040"
+source = "git+https://github.com/hvpathak/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d#d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d"
+dependencies = [
+ "tempfile",
+]
+
+[[package]]
+name = "craft-print"
+version = "0.1.0"
+source = "git+https://github.com/hvpathak/craft-libs?rev=f691aa918ee7521fefc984785b73ca32c6751d58#f691aa918ee7521fefc984785b73ca32c6751d58"
 dependencies = [
  "miniz_oxide 0.8.9",
  "roxmltree",
@@ -1202,17 +1210,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "craft-print"
-version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d#d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d"
-dependencies = [
- "tempfile",
-]
-
-[[package]]
 name = "craft-quit"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=f58bc1a3df490992d633393d0898af0588ce882c#f58bc1a3df490992d633393d0898af0588ce882c"
+source = "git+https://github.com/hvpathak/craft-libs?rev=f58bc1a3df490992d633393d0898af0588ce882c#f58bc1a3df490992d633393d0898af0588ce882c"
 dependencies = [
  "dispatch2",
  "egui",
@@ -1223,7 +1223,7 @@ dependencies = [
 [[package]]
 name = "craft-ui"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=5c874d51eeb3de70e735c8ce87a59a7dedd47675#5c874d51eeb3de70e735c8ce87a59a7dedd47675"
+source = "git+https://github.com/hvpathak/craft-libs?rev=5c874d51eeb3de70e735c8ce87a59a7dedd47675#5c874d51eeb3de70e735c8ce87a59a7dedd47675"
 dependencies = [
  "egui",
  "serde",
@@ -1232,7 +1232,7 @@ dependencies = [
 [[package]]
 name = "craft-ui"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d#d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d"
+source = "git+https://github.com/hvpathak/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d#d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d"
 dependencies = [
  "egui",
 ]
@@ -1696,7 +1696,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.36.2"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -2597,7 +2597,7 @@ dependencies = [
  "arboard",
  "chrono",
  "clipboard-win",
- "craft-print 0.1.0 (git+https://github.com/storytold/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d)",
+ "craft-print 0.1.0 (git+https://github.com/hvpathak/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d)",
  "eframe",
  "egui",
  "fmv-macos-events",
@@ -2698,7 +2698,7 @@ dependencies = [
 [[package]]
 name = "hayro"
 version = "0.7.1"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "bytemuck",
  "hayro-interpret",
@@ -2728,7 +2728,7 @@ dependencies = [
 [[package]]
 name = "hayro-interpret"
 version = "0.7.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "bitflags 2.13.2",
  "hayro-cmap",
@@ -2746,7 +2746,7 @@ dependencies = [
 [[package]]
 name = "hayro-jbig2"
 version = "0.3.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "fearless_simd",
  "hayro-ccitt",
@@ -2770,7 +2770,7 @@ checksum = "885c5ef0654933139a9b9546fc2c69e18d37f38aa2520f079092b1be18f1fcaa"
 [[package]]
 name = "hayro-syntax"
 version = "0.7.2"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "flate2",
  "hayro-ccitt",
@@ -3249,7 +3249,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 [[package]]
 name = "krilla"
 version = "0.8.2"
-source = "git+https://github.com/storytold/craft-libs?rev=c3487320b2d1de657b860b3c8abb44e1f2b32bd8#c3487320b2d1de657b860b3c8abb44e1f2b32bd8"
+source = "git+https://github.com/hvpathak/craft-libs?rev=c3487320b2d1de657b860b3c8abb44e1f2b32bd8#c3487320b2d1de657b860b3c8abb44e1f2b32bd8"
 dependencies = [
  "base64 0.22.1",
  "bumpalo",
@@ -3379,7 +3379,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 [[package]]
 name = "lopdf"
 version = "0.45.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "aes",
  "bitflags 2.13.2",
@@ -4150,7 +4150,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-a11y"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-content",
  "pdfcraft-cos",
@@ -4163,7 +4163,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-annot"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-cos",
  "pdfcraft-fonts",
@@ -4174,7 +4174,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-audit"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-content",
  "pdfcraft-cos",
@@ -4186,12 +4186,12 @@ dependencies = [
 [[package]]
 name = "pdfcraft-compare"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 
 [[package]]
 name = "pdfcraft-content"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-cos",
 ]
@@ -4199,7 +4199,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-cos"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-crypt",
  "pdfcraft-filters",
@@ -4209,7 +4209,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-create"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "encoding_rs",
  "image",
@@ -4225,7 +4225,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-crypt"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "aes",
  "md-5",
@@ -4237,7 +4237,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-edit"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "kurbo 0.13.1",
  "pdfcraft-annot",
@@ -4252,7 +4252,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-engine"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "chrono",
  "craft-docpath",
@@ -4293,7 +4293,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-export"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "flate2",
 ]
@@ -4301,7 +4301,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-filters"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "flate2",
  "thiserror 2.0.21",
@@ -4310,7 +4310,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-fonts"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "harfrust 0.12.0",
  "pdfcraft-cos",
@@ -4321,7 +4321,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-forms"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-content",
  "pdfcraft-cos",
@@ -4333,12 +4333,12 @@ dependencies = [
 [[package]]
 name = "pdfcraft-geom"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 
 [[package]]
 name = "pdfcraft-js"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "boa_engine",
 ]
@@ -4346,7 +4346,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-measure"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-annot",
  "pdfcraft-content",
@@ -4359,7 +4359,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-model"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-cos",
 ]
@@ -4367,7 +4367,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-ocr"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "ocrs",
  "pdfcraft-fonts",
@@ -4378,7 +4378,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-optimize"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "image",
  "pdfcraft-annot",
@@ -4391,7 +4391,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-organize"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-content",
  "pdfcraft-cos",
@@ -4401,7 +4401,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-platform"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "async-channel",
  "futures-lite",
@@ -4412,7 +4412,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-preflight"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-content",
  "pdfcraft-cos",
@@ -4423,9 +4423,9 @@ dependencies = [
 [[package]]
 name = "pdfcraft-print"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
- "craft-print 0.1.0 (git+https://github.com/storytold/craft-libs?rev=666c358065261a2816b376fa3bb10538dbf53040)",
+ "craft-print 0.1.0 (git+https://github.com/hvpathak/craft-libs?rev=f691aa918ee7521fefc984785b73ca32c6751d58)",
  "pdfcraft-content",
  "pdfcraft-cos",
  "pdfcraft-model",
@@ -4435,7 +4435,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-redact"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-annot",
  "pdfcraft-content",
@@ -4451,7 +4451,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-render"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "bytemuck",
  "getrandom 0.4.3",
@@ -4469,7 +4469,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-sign"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "aes",
  "aws-lc-rs",
@@ -4504,13 +4504,13 @@ dependencies = [
 [[package]]
 name = "pdfcraft-ui-egui"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "arboard",
  "base64 0.22.1",
  "bytemuck",
  "craft-quit",
- "craft-ui 0.1.0 (git+https://github.com/storytold/craft-libs?rev=5c874d51eeb3de70e735c8ce87a59a7dedd47675)",
+ "craft-ui 0.1.0 (git+https://github.com/hvpathak/craft-libs?rev=5c874d51eeb3de70e735c8ce87a59a7dedd47675)",
  "eframe",
  "egui",
  "egui_extras",
@@ -4546,7 +4546,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-xfa"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "base64 0.22.1",
  "image",
@@ -4561,7 +4561,7 @@ dependencies = [
 [[package]]
 name = "pdfcraft-xfdf"
 version = "0.9.0"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "pdfcraft-annot",
  "pdfcraft-cos",
@@ -7137,7 +7137,7 @@ dependencies = [
 [[package]]
 name = "vello_common"
 version = "0.0.8"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "bytemuck",
  "fearless_simd",
@@ -8009,7 +8009,7 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "winit"
 version = "0.30.13"
-source = "git+https://github.com/hvpathak/pdfcraft?rev=0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb#0e132ac2ab0b55d9605d8a7a3cb7ea19bbab6bdb"
+source = "git+https://github.com/hvpathak/pdfcraft?rev=901e94e2cad5d4472d76e872e04a4ca1d83c5338#901e94e2cad5d4472d76e872e04a4ca1d83c5338"
 dependencies = [
  "ahash",
  "android-activity",
@@ -8068,7 +8068,7 @@ dependencies = [
 [[package]]
 name = "winprint"
 version = "0.2.1"
-source = "git+https://github.com/storytold/winprint.rs?rev=5f80b9baf6b58937c401656634e42d33f00ddf49#5f80b9baf6b58937c401656634e42d33f00ddf49"
+source = "git+https://github.com/hvpathak/winprint.rs?rev=5f80b9baf6b58937c401656634e42d33f00ddf49#5f80b9baf6b58937c401656634e42d33f00ddf49"
 dependencies = [
  "flate2",
  "fmt-derive",
@@ -8141,7 +8141,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-doc"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "serde",
  "serde_json",
@@ -8153,7 +8153,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-docbin"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "cfb",
  "image",
@@ -8168,7 +8168,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-docx"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "aes",
  "base64 0.22.1",
@@ -8190,7 +8190,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-engine"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "getrandom 0.3.4",
  "image",
@@ -8217,7 +8217,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-fonts"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "harfrust 0.13.3",
  "kurbo 0.13.1",
@@ -8231,7 +8231,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-formats"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "cfb",
  "chardetng",
@@ -8248,7 +8248,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-geom"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "serde",
 ]
@@ -8256,7 +8256,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-layout"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "image",
  "js-sys",
@@ -8276,7 +8276,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-metafile"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "kurbo 0.13.1",
  "thiserror 2.0.21",
@@ -8285,7 +8285,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-pdf"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "craft-pdf",
  "image",
@@ -8303,7 +8303,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-proof"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "log",
  "miniz_oxide 0.8.9",
@@ -8312,7 +8312,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-render"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "image",
  "log",
@@ -8327,9 +8327,9 @@ dependencies = [
 [[package]]
 name = "wordcraft-ui-egui"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
- "craft-ui 0.1.0 (git+https://github.com/storytold/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d)",
+ "craft-ui 0.1.0 (git+https://github.com/hvpathak/craft-libs?rev=d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d)",
  "egui",
  "image",
  "js-sys",
@@ -8352,7 +8352,7 @@ dependencies = [
 [[package]]
 name = "wordcraft-zotero"
 version = "0.8.0"
-source = "git+https://github.com/hvpathak/wordcraft?rev=f66be5105082e6c2960410a59a6954e5a66d5ebc#f66be5105082e6c2960410a59a6954e5a66d5ebc"
+source = "git+https://github.com/hvpathak/wordcraft?rev=d311861eafc48863b4bfd77666422a340a02f8f2#d311861eafc48863b4bfd77666422a340a02f8f2"
 dependencies = [
  "log",
  "serde_json",

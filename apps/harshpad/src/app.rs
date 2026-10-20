@@ -90,6 +90,17 @@ struct Tab {
 }
 
 impl Tab {
+    /// Tabs of the same family can share a split view: Notepad, the older documents,
+    /// Writer Studio, PDF Studio.
+    fn family(&self) -> u8 {
+        match self.content {
+            Content::Text(_) => 0,
+            Content::Doc(_) => 1,
+            Content::Writer(_) => 2,
+            Content::Pdf(_) => 3,
+        }
+    }
+
     fn kind(&self) -> TabKind {
         match self.content {
             Content::Text(_) => TabKind::Text,
@@ -244,7 +255,6 @@ pub struct StudioApp {
     ribbon_collapsed: bool,
     /// Open the new-tab choices on the next frame (Ctrl+T).
     open_picker: bool,
-    tab_search: String,
     command_search: String,
     /// Recently closed tabs (title, content), newest last, for Ctrl+Shift+T.
     closed: Vec<(String, Content)>,
@@ -255,6 +265,8 @@ pub struct StudioApp {
     ctx: egui::Context,
     /// The start-up card, until the editors have loaded.
     splash: Option<crate::splash::Splash>,
+    /// Two tabs side by side, like a browser's split view.
+    split: Option<crate::split::Split>,
     /// Files Finder asks us to open (macOS).
     #[cfg(target_os = "macos")]
     finder: Option<fmv_macos_events::Inbox>,
@@ -281,13 +293,13 @@ impl StudioApp {
             ribbon_tab: 1,
             ribbon_collapsed: false,
             open_picker: false,
-            tab_search: String::new(),
             command_search: String::new(),
             closed: Vec::new(),
             pending_input: Vec::new(),
             last_autosave: Instant::now(),
             ctx: cc.egui_ctx.clone(),
             splash: Some(crate::splash::Splash::new(&cc.egui_ctx, crate::ICON_PNG)),
+            split: None,
             #[cfg(target_os = "macos")]
             finder: None,
         };
@@ -495,6 +507,204 @@ impl StudioApp {
         }
     }
 
+    // ---- Split view ----------------------------------------------------------------------
+
+    /// Puts tab `j` next to tab `i` and shows them side by side, `i` active. Only tabs of the
+    /// same kind can share a split.
+    fn start_split(&mut self, i: usize, j: usize) {
+        let (Some(a), Some(b)) = (self.tabs.get(i), self.tabs.get(j)) else {
+            return;
+        };
+        if i == j || a.family() != b.family() {
+            self.status = Some("Only tabs of the same kind can share a split view".into());
+            return;
+        }
+        let (left, right) = (a.id, b.id);
+        // Keep the pair together in the tab bar, right after the first one.
+        let tab = self.tabs.remove(j);
+        let at = self
+            .tabs
+            .iter()
+            .position(|t| t.id == left)
+            .map_or(0, |p| p + 1);
+        self.tabs.insert(at.min(self.tabs.len()), tab);
+        self.active = self.tabs.iter().position(|t| t.id == left).unwrap_or(0);
+        self.split = Some(crate::split::Split::new(left, right));
+        self.status = Some("Split view: click a side to work in it · × takes it out".into());
+    }
+
+    /// The split shown now, as (left, right) tab indices: when the active tab is in it and
+    /// both halves are still open and of the same kind.
+    fn visible_split(&self) -> Option<(usize, usize)> {
+        let split = self.split?;
+        let active = self.tab()?.id;
+        if !split.contains(active) {
+            return None;
+        }
+        let l = self.tabs.iter().position(|t| t.id == split.left)?;
+        let r = self.tabs.iter().position(|t| t.id == split.right)?;
+        let same = self.tabs.get(l).map(Tab::family) == self.tabs.get(r).map(Tab::family);
+        same.then_some((l, r))
+    }
+
+    /// Both halves of the split, the active one outlined. A press in the other half makes it
+    /// active (that first click only switches, like a browser); only the active half gets the
+    /// keyboard.
+    #[allow(clippy::too_many_arguments)]
+    fn split_view(
+        &mut self,
+        ui: &mut egui::Ui,
+        frame: &mut eframe::Frame,
+        zoom: f32,
+        ruler: bool,
+        li: usize,
+        ri: usize,
+    ) {
+        let ctx = ui.ctx().clone();
+        let full = ui.max_rect();
+        let ratio = self.split.map_or(0.5, |s| s.ratio);
+        let (left, right, divider) = crate::split::panes(full, ratio);
+        // The divider between the halves: drag it to resize them.
+        let d = ui
+            .interact(divider, egui::Id::new("split-divider"), egui::Sense::drag())
+            .on_hover_text("Drag to resize · double-click to make both halves equal");
+        if d.hovered() || d.dragged() {
+            ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+        }
+        if let Some(split) = self.split.as_mut() {
+            if d.dragged()
+                && let Some(p) = ctx.input(|i| i.pointer.interact_pos())
+            {
+                split.set_ratio((p.x - full.left()) / full.width().max(1.0));
+            }
+            if d.double_clicked() {
+                split.set_ratio(0.5);
+            }
+        }
+        let pressed = ctx.input(|i| {
+            (i.pointer.primary_pressed() || i.pointer.secondary_pressed())
+                .then(|| i.pointer.interact_pos())
+                .flatten()
+        });
+        if let Some(p) = pressed
+            && ctx
+                .layer_id_at(p)
+                .is_none_or(|l| l.order == egui::Order::Background)
+        {
+            if left.contains(p) {
+                self.active = li;
+            } else if right.contains(p) {
+                self.active = ri;
+            }
+        }
+        let focused = self.active;
+        let halves = [(li, left), (ri, right)];
+        // The other half first, so where the two editors use the same widget ids, the
+        // active one's widgets are the ones that count.
+        let order = if focused == li {
+            [halves[1], halves[0]]
+        } else {
+            halves
+        };
+        for (index, rect) in order {
+            let active = index == focused;
+            // The other half never sees the keyboard, so typing goes only where you work.
+            let saved = (!active).then(|| ctx.input_mut(|i| std::mem::take(&mut i.events)));
+            if let Some(tab) = self.tabs.get_mut(index) {
+                let id = tab.id;
+                ui.scope_builder(
+                    egui::UiBuilder::new()
+                        .max_rect(rect)
+                        .id_salt(("split-pane", id)),
+                    |ui| {
+                        ui.set_clip_rect(rect.intersect(ui.clip_rect()));
+                        if !active {
+                            // Looks the same as the active half, but doesn't respond.
+                            ui.visuals_mut().disabled_alpha = 1.0;
+                            ui.disable();
+                        }
+                        match &mut tab.content {
+                            Content::Text(t) => t.ui(ui, TEXT_SIZE * zoom),
+                            Content::Doc(d) => d.ui(ui, zoom, ruler),
+                            Content::Writer(w) => w.ui(ui, frame),
+                            Content::Pdf(p) => p.ui(ui, frame),
+                        }
+                    },
+                );
+            }
+            if let Some(events) = saved {
+                ctx.input_mut(|i| i.events = events);
+            }
+        }
+        // The active half's outline, and a × in each half's bottom-right corner.
+        let dark = ctx.global_style().visuals.dark_mode;
+        let accent = if dark {
+            Color32::from_rgb(110, 160, 245)
+        } else {
+            Color32::from_rgb(26, 115, 232)
+        };
+        let painter = ui.painter().clone();
+        for (index, rect) in halves {
+            if index == focused {
+                painter.rect_stroke(
+                    rect,
+                    6.0,
+                    egui::Stroke::new(2.0_f32, accent),
+                    egui::StrokeKind::Outside,
+                );
+            } else {
+                painter.rect_stroke(
+                    rect,
+                    6.0,
+                    egui::Stroke::new(1.0_f32, ui.visuals().weak_text_color().gamma_multiply(0.4)),
+                    egui::StrokeKind::Outside,
+                );
+            }
+        }
+        let mut take_out = None;
+        for (index, rect) in halves {
+            let centre = rect.right_bottom() - egui::vec2(3.0, 3.0);
+            let hit = egui::Rect::from_center_size(centre, egui::vec2(20.0, 20.0));
+            let response = ui
+                .interact(
+                    hit,
+                    egui::Id::new(("split-close", index)),
+                    egui::Sense::click(),
+                )
+                .on_hover_text("Take this side out of the split view (the tab stays open)");
+            let fill = if response.hovered() {
+                accent
+            } else if dark {
+                Color32::from_gray(60)
+            } else {
+                Color32::from_gray(205)
+            };
+            painter.circle_filled(centre, 9.0, fill);
+            let mark = if response.hovered() {
+                Color32::WHITE
+            } else {
+                ui.visuals().strong_text_color()
+            };
+            let s = 3.5;
+            let stroke = egui::Stroke::new(1.4_f32, mark);
+            painter.line_segment(
+                [centre + egui::vec2(-s, -s), centre + egui::vec2(s, s)],
+                stroke,
+            );
+            painter.line_segment(
+                [centre + egui::vec2(s, -s), centre + egui::vec2(-s, s)],
+                stroke,
+            );
+            if response.clicked() {
+                take_out = Some(index);
+            }
+        }
+        if let Some(index) = take_out {
+            self.split = None;
+            // The other half stays, on its own.
+            self.active = if index == li { ri } else { li };
+        }
+    }
     // ---- Tabs ------------------------------------------------------------------------
 
     fn add_tab(&mut self, content: Content) {
@@ -530,6 +740,10 @@ impl StudioApp {
         }
         if index < self.tabs.len() {
             let tab = self.tabs.remove(index);
+            // Closing either half ends the split view.
+            if self.split.is_some_and(|s| s.contains(tab.id)) {
+                self.split = None;
+            }
             // Keep it for Ctrl+Shift+T (empty new tabs aren't worth reopening).
             if !tab.is_pristine() {
                 self.closed.push((tab.title(), tab.content));
@@ -1206,6 +1420,10 @@ impl StudioApp {
 
     /// Browser-style tabs in the title bar.
     fn tab_bar(&mut self, ui: &mut egui::Ui) -> Option<Command> {
+        let shown = self
+            .split
+            .filter(|_| self.visible_split().is_some())
+            .map(|s| (s.left, s.right));
         let infos: Vec<chrome::TabInfo> = self
             .tabs
             .iter()
@@ -1217,6 +1435,8 @@ impl StudioApp {
                     TabKind::Text => crate::icons::AppIcon::Notepad,
                 },
                 dirty: t.is_dirty(),
+                family: t.family(),
+                split: shown.is_some_and(|(l, r)| t.id == l || t.id == r),
                 tooltip: t.path().map_or_else(
                     || format!("{} · not saved yet", t.title()),
                     |p| p.display().to_string(),
@@ -1224,7 +1444,6 @@ impl StudioApp {
             })
             .collect();
         let offer = self.offer();
-        let closed: Vec<String> = self.closed.iter().map(|(t, _)| t.clone()).collect();
         let open_picker = std::mem::take(&mut self.open_picker);
         // Room for the mode switch, left of the ⌄ menu.
         let font = egui::TextStyle::Button.resolve(ui.style());
@@ -1233,16 +1452,7 @@ impl StudioApp {
                 .size()
                 .x
         }) + 24.0;
-        let events = chrome::title_bar(
-            ui,
-            reserve,
-            &infos,
-            self.active,
-            &offer,
-            open_picker,
-            &mut self.tab_search,
-            &closed,
-        );
+        let events = chrome::title_bar(ui, reserve, &infos, self.active, &offer, open_picker);
         self.handle_chrome(events);
         let slot = chrome::mode_slot(ui.max_rect(), reserve);
         ui.scope_builder(
@@ -1284,7 +1494,6 @@ impl StudioApp {
                 chrome::Event::Move { from, to } => self.move_tab(from, to),
                 chrome::Event::New(kind) => self.new_tab(kind),
                 chrome::Event::Open => self.open_dialog(),
-                chrome::Event::Reopen(i) => self.reopen(i),
                 chrome::Event::Off => {
                     self.status =
                         Some("That app is off in this mode. Switch at ◧ in the top right.".into());
@@ -1294,6 +1503,8 @@ impl StudioApp {
                         "That opens in Chapter {n}. Ask a parent to unlock it (top right → Path)."
                     ));
                 }
+                chrome::Event::Split(i, j) => self.start_split(i, j),
+                chrome::Event::Unsplit => self.split = None,
             }
         }
     }
@@ -2437,9 +2648,24 @@ impl eframe::App for StudioApp {
         };
         let offer = self.offer();
         let mut start = Vec::new();
+        let split = self.visible_split();
+        let panel_frame = if split.is_some() {
+            // The window's own colour shows around and between the two halves.
+            egui::Frame::NONE.fill(if ctx.global_style().visuals.dark_mode {
+                Color32::from_gray(14)
+            } else {
+                Color32::from_gray(218)
+            })
+        } else {
+            panel_frame
+        };
         egui::CentralPanel::default()
             .frame(panel_frame)
             .show(ui, |ui| {
+                if let Some((l, r)) = split {
+                    self.split_view(ui, frame, zoom, ruler, l, r);
+                    return;
+                }
                 match self.tabs.get_mut(self.active).map(|t| &mut t.content) {
                     Some(Content::Text(t)) => t.ui(ui, TEXT_SIZE * zoom),
                     Some(Content::Doc(d)) => d.ui(ui, zoom, ruler),

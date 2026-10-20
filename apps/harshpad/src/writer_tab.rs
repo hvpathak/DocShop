@@ -1,4 +1,4 @@
-//! A Writer tab: the WordCraft editor (github.com/storytold/wordcraft, MIT OR
+//! A Writer tab: the WordCraft editor (github.com/hvpathak/wordcraft, MIT OR
 //! Apache-2.0) hosted inside a HarshPad tab. WordCraft draws its own title bar,
 //! ribbon, panes, page and status bar into the area the tab gives it, and gets from
 //! HarshPad everything WordCraft's own desktop app would give it: native file

@@ -31,7 +31,7 @@
     "dialogs.rs:2693: ui.hyperlink_to(tl!(\"getartcraft.com/apps/wordcraft\"), \"https://getartcraft.com/apps/wordcraft\");"
   ],
   "upstream source": [
-    "dialogs.rs:2695: ui.hyperlink_to(tl!(\"Source code: github.com/storytold/wordcraft\"), \"https://github.com/storytold/wordcraft\");"
+    "dialogs.rs:2695: ui.hyperlink_to(tl!(\"Source code: github.com/<upstream>/wordcraft\"), \"https://github.com/<upstream>/wordcraft\");"
   ],
   "community wording": [
     "chrome.rs:367: if resp.on_hover_text(tl!(\"Join the ArtCraft community on Discord\")).clicked() {",

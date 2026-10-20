@@ -24,7 +24,7 @@ arboard = { version = "3.6", default-features = false, features = ["image-data"]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 log = "0.4"
 pollster = "0.4"
-craft-print = { git = "https://github.com/storytold/craft-libs", rev = "d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d" }
+craft-print = { git = "https://github.com/hvpathak/craft-libs", rev = "d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d" }
 
 # The WordCraft host services (wordcraft_host), with the same platform crates WordCraft's app uses.
 [target.'cfg(target_os = "macos")'.dependencies]
