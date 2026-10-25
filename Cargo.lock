@@ -2626,7 +2626,7 @@ dependencies = [
 
 [[package]]
 name = "harshpad"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "arboard",
  "chrono",
@@ -2661,7 +2661,7 @@ dependencies = [
 
 [[package]]
 name = "harshpad-cli"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "harshpad-core",
  "harshpad-rich",
@@ -2669,21 +2669,21 @@ dependencies = [
 
 [[package]]
 name = "harshpad-core"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "harshpad-layout"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "harshpad-rich",
 ]
 
 [[package]]
 name = "harshpad-rich"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "pulldown-cmark",
  "quick-xml 0.37.5",
