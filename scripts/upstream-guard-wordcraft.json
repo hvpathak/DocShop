@@ -1,41 +1,41 @@
 {
   "discord": [
-    "backstage.rs:132: let footer: &[(&str, &str)] = if app.services.hide_community { &[] } else { &[(\"About\", \"about\"), (\"Discord community\", \"discord\")] };",
-    "backstage.rs:142: if id == \"discord\" {",
-    "backstage.rs:143: let _ = app.run(\"ui.discord\", json!({}));",
-    "chrome.rs:356: if app.ui.show_discord && !app.services.hide_community {",
-    "chrome.rs:362: \"discord\",",
-    "chrome.rs:366: ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, tl!(\"Discord\"), medium(11.5), t.on_accent);",
-    "chrome.rs:367: if resp.on_hover_text(tl!(\"Join the ArtCraft community on Discord\")).clicked() {",
-    "chrome.rs:368: let _ = app.run(\"ui.discord\", json!({}));",
-    "dialogs.rs:2694: ui.hyperlink_to(tl!(\"Join us on Discord: discord.gg/artcraft\"), \"https://discord.gg/artcraft\");",
-    "icons.rs:1282: \"discord\" => {",
-    "keytips.rs:342: \"Help\" => vec![c(\"Help\", \"ui.help\"), c(\"Community\", \"ui.discord\"), d(\"Commands\", \"commands\")],",
-    "lib.rs:100: /// the About window, and the community button to its own page instead of Discord.",
-    "lib.rs:282: pub show_discord: bool,",
-    "lib.rs:384: show_discord: true,",
-    "lib.rs:1691: \"ui.discord\" => {",
-    "lib.rs:1692: let url = self.services.community_url.clone().unwrap_or_else(|| \"https://discord.gg/artcraft\".into());",
-    "lib.rs:2635: | \"ui.discord\"",
-    "lib.rs:2996: for id in [\"file.new\", \"file.open\", \"ui.backstage\", \"ui.tab\", \"ui.discord\", \"file.options\", \"ui.theme\"] {",
-    "options.rs:193: ui.checkbox(&mut app.ui.show_discord, tl!(\"Show the community button in the title bar\"));",
-    "ribbon.rs:2236: big(ui, app, \"discord\", \"Community\\nDiscord\", \"ui.discord\", json!({}), false);",
-    "ribbon.rs:2239: big(ui, app, \"share\", \"Feedback\", \"ui.discord\", json!({}), false);",
-    "theme.rs:915: /// #656: dialog primary buttons, the Discord pill, the table eraser and the Navigation search"
+    "backstage.rs:125: let footer: &[(&str, &str)] = if app.services.hide_community { &[] } else { &[(\"About\", \"about\"), (\"Discord community\", \"discord\")] };",
+    "backstage.rs:135: if id == \"discord\" {",
+    "backstage.rs:136: let _ = app.run(\"ui.discord\", json!({}));",
+    "chrome.rs:384: if app.ui.show_discord && !app.services.hide_community {",
+    "chrome.rs:390: \"discord\",",
+    "chrome.rs:394: ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, tl!(\"Discord\"), medium(11.5), t.on_accent);",
+    "chrome.rs:395: if resp.on_hover_text(tl!(\"Join the ArtCraft community on Discord\")).clicked() {",
+    "chrome.rs:396: let _ = app.run(\"ui.discord\", json!({}));",
+    "dialogs.rs:2729: ui.hyperlink_to(tl!(\"Join us on Discord: discord.gg/artcraft\"), \"https://discord.gg/artcraft\");",
+    "icons.rs:1292: \"discord\" => {",
+    "keytips.rs:390: \"Help\" => vec![c(\"Help\", \"ui.help\"), c(\"Community\", \"ui.discord\"), d(\"Commands\", \"commands\")],",
+    "lib.rs:103: /// the About window, and the community button to its own page instead of Discord.",
+    "lib.rs:305: pub show_discord: bool,",
+    "lib.rs:420: show_discord: true,",
+    "lib.rs:1821: \"ui.discord\" => {",
+    "lib.rs:1822: let url = self.services.community_url.clone().unwrap_or_else(|| \"https://discord.gg/artcraft\".into());",
+    "lib.rs:2933: | \"ui.discord\"",
+    "lib.rs:3610: for id in [\"file.new\", \"file.open\", \"ui.backstage\", \"ui.tab\", \"ui.discord\", \"file.options\", \"ui.theme\"] {",
+    "options.rs:222: ui.checkbox(&mut app.ui.show_discord, tl!(\"Show the community button in the title bar\"));",
+    "ribbon.rs:2412: big(ui, app, \"discord\", \"Community\\nDiscord\", \"ui.discord\", json!({}), false);",
+    "ribbon.rs:2415: big(ui, app, \"share\", \"Feedback\", \"ui.discord\", json!({}), false);",
+    "theme.rs:966: /// #656: dialog primary buttons, the Discord pill, the table eraser and the Navigation search"
   ],
   "account initials": [
-    "chrome.rs:349: let initials: String = app.session.user_initials().chars().take(2).collect();",
-    "options.rs:218: let hint = app.session.user_initials();"
+    "chrome.rs:377: let initials: String = app.session.user_initials().chars().take(2).collect();",
+    "options.rs:248: let hint = app.session.user_initials();"
   ],
   "upstream website": [
-    "dialogs.rs:2693: ui.hyperlink_to(tl!(\"getartcraft.com/apps/wordcraft\"), \"https://getartcraft.com/apps/wordcraft\");"
+    "dialogs.rs:2728: ui.hyperlink_to(tl!(\"getartcraft.com/apps/wordcraft\"), \"https://getartcraft.com/apps/wordcraft\");"
   ],
   "upstream source": [
-    "dialogs.rs:2695: ui.hyperlink_to(tl!(\"Source code: github.com/<upstream>/wordcraft\"), \"https://github.com/<upstream>/wordcraft\");"
+    "dialogs.rs:2730: ui.hyperlink_to(tl!(\"Source code: github.com/<upstream>/wordcraft\"), \"https://github.com/<upstream>/wordcraft\");"
   ],
   "community wording": [
-    "chrome.rs:367: if resp.on_hover_text(tl!(\"Join the ArtCraft community on Discord\")).clicked() {",
-    "dialogs.rs:2690: \"A free, open-source word processor written from scratch in Rust.\\nPart of the Crafting Apps from the ArtCraft team.\"",
-    "dialogs.rs:2698: egui::RichText::new(tl!(\"MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.\"))"
+    "chrome.rs:395: if resp.on_hover_text(tl!(\"Join the ArtCraft community on Discord\")).clicked() {",
+    "dialogs.rs:2725: \"A free, open-source word processor written from scratch in Rust.\\nPart of the Crafting Apps from the ArtCraft team.\"",
+    "dialogs.rs:2733: egui::RichText::new(tl!(\"MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.\"))"
   ]
 }

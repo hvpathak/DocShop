@@ -1,5 +1,11 @@
 # Dev log
 
+## 2026-10-25: v0.8.1, their update
+- WordShop is now WordCraft 0.10.0 (812 upstream commits) and PDFShop is PdfCraft with 1,613 new commits, both
+  merged into our forks' harshpad branches by `scripts/get-their-update.ps1`; the new-links guard found nothing to hide.
+- PdfCraft conflicts (community card, open_path) resolved by keeping our embedding hooks plus their changes.
+- Includes their security fixes (encrypted DOCX integrity check, PDF form and redaction fixes). The Save dialog now
+  starts in the document's folder, as in their own app. The update script's default folder bug is fixed.
 ## 2026-10-20: v0.8.0, DocShop
 - The suite is **DocShop** ("one place for all your documents"), with NoteShop (quick notes, big ideas),
   WordShop (write, edit and create with ease) and PDFShop (view, edit and manage PDFs). The four icons are

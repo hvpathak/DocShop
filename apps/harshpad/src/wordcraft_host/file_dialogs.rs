@@ -116,8 +116,12 @@ fn picker(dialog: rfd::AsyncFileDialog, req: &FileDialogRequest) -> Picking {
                 .await
                 .unwrap_or_default()
         }),
-        FileDialogRequest::Save { name } => {
+        FileDialogRequest::Save { name, dir } => {
             let mut dialog = dialog.set_file_name(name.clone());
+            // Start in the folder the document came from.
+            if let Some(dir) = dir.filter(|d| std::path::Path::new(d).is_dir()) {
+                dialog = dialog.set_directory(dir);
+            }
             for (label, exts) in save_filters(&name) {
                 dialog = dialog.add_filter(label, &exts);
             }

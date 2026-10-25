@@ -15,7 +15,7 @@ Usage:  pwsh scripts/get-their-update.ps1 [-Project wordcraft] [-Workdir D:\Reev
 param(
     [ValidateSet('wordcraft', 'pdfcraft')]
     [string]$Project = 'wordcraft',
-    [string]$Workdir = (Join-Path (Split-Path $PSScriptRoot -Parent) '..\upstream')
+    [string]$Workdir = ([IO.Path]::GetFullPath((Join-Path (Split-Path $PSScriptRoot -Parent) '..\upstream')))
 )
 $ErrorActionPreference = 'Stop'
 $repo = Join-Path $Workdir $Project

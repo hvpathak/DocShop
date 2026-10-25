@@ -1,14 +1,14 @@
 {
   "discord": [
-    "chrome.rs:71: // Keep the two icon buttons, Discord's text/padding and three gaps outside the scrolling tabs.",
-    "chrome.rs:72: let controls_width = ui.fonts_mut(|f| f.layout_no_wrap(\"Discord\".into(), theme::medium(13.0), t.text).size().x)",
-    "chrome.rs:307: && widgets::ghost_button_sized(ui, \"messages-square\", \"Discord\", tab_h)",
-    "chrome.rs:308: .on_hover_text(pdfcraft_engine::links::DISCORD)",
-    "chrome.rs:311: app.execute(\"help.discord\");",
+    "chrome.rs:75: // Keep the two icon buttons, Discord's text/padding and three gaps outside the scrolling tabs.",
+    "chrome.rs:76: let controls_width = ui.fonts_mut(|f| f.layout_no_wrap(\"Discord\".into(), theme::medium(13.0), t.text).size().x)",
+    "chrome.rs:294: && widgets::ghost_button_sized(ui, \"messages-square\", \"Discord\", tab_h)",
+    "chrome.rs:295: .on_hover_text(pdfcraft_engine::links::DISCORD)",
+    "chrome.rs:298: app.execute(\"help.discord\");",
     "home.rs:45: ui.label(egui::RichText::new(tl!(\"Get help, share feedback and follow development on Discord.\")).color(t.text_muted));",
-    "lib.rs:1804: self.embedded && matches!(id, \"help.discord\" | \"help.app_page\" | \"help.website\" | \"help.about\" | \"help.check_updates\")",
-    "widgets.rs:522: /// Buttons for every community link (`pdfcraft_engine::links`), Discord first and prominent.",
-    "widgets.rs:529: let resp = if i == 0 { icon_pill(ui, l.icon, tl!(\"Join our Discord\"), true) } else { icon_pill(ui, l.icon, tl!(l.label), false) };"
+    "lib.rs:2122: self.embedded && matches!(id, \"help.discord\" | \"help.app_page\" | \"help.website\" | \"help.about\" | \"help.check_updates\")",
+    "widgets.rs:534: /// Buttons for every community link (`pdfcraft_engine::links`), Discord first and prominent.",
+    "widgets.rs:541: let resp = if i == 0 { icon_pill(ui, l.icon, tl!(\"Join our Discord\"), true) } else { icon_pill(ui, l.icon, tl!(l.label), false) };"
   ],
   "account initials": [],
   "upstream website": [],
