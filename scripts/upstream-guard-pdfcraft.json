@@ -1,21 +1,23 @@
 {
   "discord": [
-    "chrome.rs:75: // Keep the two icon buttons, Discord's text/padding and three gaps outside the scrolling tabs.",
-    "chrome.rs:76: let controls_width = ui.fonts_mut(|f| f.layout_no_wrap(\"Discord\".into(), theme::medium(13.0), t.text).size().x)",
-    "chrome.rs:294: && widgets::ghost_button_sized(ui, \"messages-square\", \"Discord\", tab_h)",
-    "chrome.rs:295: .on_hover_text(pdfcraft_engine::links::DISCORD)",
-    "chrome.rs:298: app.execute(\"help.discord\");",
-    "home.rs:45: ui.label(egui::RichText::new(tl!(\"Get help, share feedback and follow development on Discord.\")).color(t.text_muted));",
-    "lib.rs:2122: self.embedded && matches!(id, \"help.discord\" | \"help.app_page\" | \"help.website\" | \"help.about\" | \"help.check_updates\")",
-    "widgets.rs:534: /// Buttons for every community link (`pdfcraft_engine::links`), Discord first and prominent.",
-    "widgets.rs:541: let resp = if i == 0 { icon_pill(ui, l.icon, tl!(\"Join our Discord\"), true) } else { icon_pill(ui, l.icon, tl!(l.label), false) };"
+    "app.rs:69: self.embedded && matches!(id, \"help.discord\" | \"help.app_page\" | \"help.website\" | \"help.about\" | \"help.check_updates\")",
+    "chrome.rs:79: // Reserve the three icon buttons, Discord and their gaps outside the scrolling tabs.",
+    "chrome.rs:80: let controls_width = ui.fonts_mut(|f| f.layout_no_wrap(\"Discord\".into(), theme::medium(13.0), t.text).size().x)",
+    "chrome.rs:283: if widgets::ghost_button_sized(ui, \"messages-square\", \"Discord\", tab_h).on_hover_text(pdfcraft_engine::links::DISCORD).clicked() {",
+    "chrome.rs:284: app.execute(\"help.discord\");",
+    "home.rs:99: ui.label(egui::RichText::new(tl!(\"Get help, share feedback and follow development on Discord.\")).color(t.text_muted));",
+    "menus.rs:231: &[\"help.shortcuts\", SEP, \"help.app_page\", \"help.github\", \"help.website\", \"help.discord\", SEP, \"help.check_updates\", SEP, \"help.about\"];",
+    "widgets.rs:655: /// Buttons for every community link (`pdfcraft_engine::links`), Discord first and prominent.",
+    "widgets.rs:662: let resp = if i == 0 { icon_pill(ui, l.icon, tl!(\"Join our Discord\"), true) } else { icon_pill(ui, l.icon, tl!(l.label), false) };"
   ],
   "account initials": [],
   "upstream website": [],
   "upstream source": [
-    "updates.rs:15: pub const RELEASES_PAGE: &str = \"https://github.com/<upstream>/pdfcraft/releases\";"
+    "platform\\updates.rs:13: pub const RELEASES_PAGE: &str = \"https://github.com/<upstream>/pdfcraft/releases\";",
+    "platform\\updates.rs:327: html_url: \"https://github.com/<upstream>/pdfcraft/releases/tag/v99.0.0\".into(),",
+    "i18n.rs:7: //! The catalogs live in [<upstream>/craft-i18n](https://github.com/<upstream>/craft-i18n)"
   ],
   "community wording": [
-    "home.rs:44: ui.label(egui::RichText::new(tl!(\"Join the ArtCraft community\")).font(theme::semibold(15.0)));"
+    "home.rs:98: ui.label(egui::RichText::new(tl!(\"Join the ArtCraft community\")).font(theme::semibold(15.0)));"
   ]
 }

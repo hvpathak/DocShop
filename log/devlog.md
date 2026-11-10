@@ -1,5 +1,17 @@
 # Dev log
 
+## 2026-11-10: v0.8.2, their update (WordCraft 0.10 + the latest PdfCraft, egui 0.37)
+- WordShop is now WordCraft with 1,372 more upstream commits and PDFShop is PdfCraft with 3,000+ more, merged into our
+  forks by `scripts/get-their-update.ps1`. Their code was restructured, so our small changes (no community links,
+  Help to our page, light/dark switch, one PDF toolbar row, no update checks) were re-applied by hand and the
+  new-links guard baselines were reviewed and rewritten.
+- The UI toolkit moved to egui/eframe 0.37 with upstream's custom egui and winit (international text input and
+  right-to-left text), taken from our own forks (hvpathak/egui, hvpathak/winit). Every git source in the lock is
+  now ours (craft-libs, winprint.rs, egui, winit); CI checks it.
+- Ported DocShop's own code: renamed ids, the exit hook, the editor's IME descriptor, printer labels, and the
+  rich-copy clipboard hook (text, HTML and MathML; RTF is not written by this host yet).
+- The update script's default folder bug is fixed; it can also resolve the upstream owner through the fork.
+
 ## 2026-10-25: v0.8.1, their update
 - WordShop is now WordCraft 0.10.0 (812 upstream commits) and PDFShop is PdfCraft with 1,613 new commits, both
   merged into our forks' harshpad branches by `scripts/get-their-update.ps1`; the new-links guard found nothing to hide.

@@ -42,7 +42,7 @@ impl TextTab {
             word_wrap: true,
             undo: UndoStack::default(),
             caret: 0,
-            editor_id: egui::Id::new(("text-editor", tab_id)),
+            editor_id: egui::Id::unique(("text-editor", tab_id)),
             name_hint: None,
         }
     }

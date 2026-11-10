@@ -50,6 +50,12 @@ pub fn set_html(html: &str, text: &str, mathml: &str) -> bool {
     set
 }
 
+/// WordCraft's copy hook: text, HTML, RTF and MathML. This host puts the text, the HTML and the
+/// MathML on the clipboard (as before); the RTF is not written.
+pub fn set_rich(text: &str, html: &str, _rtf: &str, mathml: &str) -> bool {
+    set_html(html, text, mathml)
+}
+
 fn set_html_text(html: &str, text: &str) -> bool {
     WRITER.with(|w| {
         let Ok(mut slot) = w.try_borrow_mut() else {

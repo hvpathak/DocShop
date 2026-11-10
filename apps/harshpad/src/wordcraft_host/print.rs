@@ -10,6 +10,7 @@ pub fn discover() -> Discover {
                 let printers = craft_print::printers()
                     .into_iter()
                     .map(|printer| Printer {
+                        label: printer.name.clone(),
                         name: printer.name,
                         default: printer.default,
                     })

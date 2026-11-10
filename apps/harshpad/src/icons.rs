@@ -47,7 +47,7 @@ fn artwork(icon: AppIcon) -> Option<(&'static str, &'static [u8])> {
 /// drawn as small as a tab icon.
 fn texture(ctx: &egui::Context, icon: AppIcon) -> Option<TextureHandle> {
     let (name, png) = artwork(icon)?;
-    let id = Id::new(("app-icon", name));
+    let id = Id::unique(("app-icon", name));
     if let Some(t) = ctx.data(|d| d.get_temp::<TextureHandle>(id)) {
         return Some(t);
     }

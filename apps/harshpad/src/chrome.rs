@@ -262,7 +262,7 @@ pub fn title_bar(
     let natural = (room / n).clamp(MIN_TAB_W, MAX_TAB_W);
     // Like a browser: after closing a tab with the mouse, widths hold still until
     // the pointer leaves the strip.
-    let frozen_id = Id::new("chrome-frozen-width");
+    let frozen_id = Id::unique("chrome-frozen-width");
     let pointer_in_bar = ctx
         .input(|i| i.pointer.hover_pos())
         .is_some_and(|p| rect.contains(p));
@@ -276,7 +276,7 @@ pub fn title_bar(
     };
 
     // ---- Tabs -----------------------------------------------------------------------
-    let dragging: Option<usize> = ctx.data(|d| d.get_temp(Id::new("chrome-dragging")));
+    let dragging: Option<usize> = ctx.data(|d| d.get_temp(Id::unique("chrome-dragging")));
     for (i, tab) in tabs.iter().enumerate() {
         let x = left + tab_w * i as f32;
         let r = Rect::from_min_max(
@@ -284,7 +284,7 @@ pub fn title_bar(
             pos2(x + tab_w, rect.bottom()),
         );
         let response = ui
-            .interact(r, Id::new(("chrome-tab", i)), Sense::click_and_drag())
+            .interact(r, Id::unique(("chrome-tab", i)), Sense::click_and_drag())
             .on_hover_text(&tab.tooltip);
         let is_active = i == active;
         // Both halves of a split view look selected, joined like one wide tab.
@@ -359,7 +359,7 @@ pub fn title_bar(
             }
         }
         let close_response = ui
-            .interact(close, Id::new(("chrome-close", i)), Sense::click())
+            .interact(close, Id::unique(("chrome-close", i)), Sense::click())
             .on_hover_text("Close tab (Ctrl+W)");
         if show_close || close_response.hovered() {
             if close_response.hovered() {
@@ -423,7 +423,7 @@ pub fn title_bar(
             events.push(Event::Close(i));
             ctx.data_mut(|d| d.insert_temp(frozen_id, tab_w));
         } else if response.drag_started() {
-            ctx.data_mut(|d| d.insert_temp(Id::new("chrome-dragging"), i));
+            ctx.data_mut(|d| d.insert_temp(Id::unique("chrome-dragging"), i));
             events.push(Event::Select(i));
         } else if response.clicked() {
             events.push(Event::Select(i));
@@ -435,7 +435,7 @@ pub fn title_bar(
             if to != i {
                 events.push(Event::Move { from: i, to });
             }
-            ctx.data_mut(|d| d.remove::<usize>(Id::new("chrome-dragging")));
+            ctx.data_mut(|d| d.remove::<usize>(Id::unique("chrome-dragging")));
         }
     }
     // Where a dragged tab will land.
@@ -460,7 +460,7 @@ pub fn title_bar(
         vec2(28.0, 28.0),
     );
     let plus_response = ui
-        .interact(plus, Id::new("chrome-plus"), Sense::click())
+        .interact(plus, Id::unique("chrome-plus"), Sense::click())
         .on_hover_text("New tab (Ctrl+T)");
     if plus_response.hovered() {
         painter.circle_filled(plus.center(), 14.0, hover_fill);
@@ -472,7 +472,7 @@ pub fn title_bar(
         FontId::proportional(20.0),
         text_colour,
     );
-    let picker = Id::new("new-tab-picker");
+    let picker = Id::unique("new-tab-picker");
     // + always asks which of the three apps to open.
     if plus_response.clicked() {
         egui::Popup::toggle_id(&ctx, picker);
@@ -498,7 +498,7 @@ pub fn title_bar(
         pos2(rect.right() - controls - reserve - 10.0, rect.bottom()),
     );
     if drag.width() > 0.0 {
-        let response = ui.interact(drag, Id::new("chrome-drag"), Sense::click_and_drag());
+        let response = ui.interact(drag, Id::unique("chrome-drag"), Sense::click_and_drag());
         if response.double_clicked() {
             toggle_maximized(&ctx);
         } else if response.drag_started_by(egui::PointerButton::Primary) {
@@ -512,7 +512,7 @@ pub fn title_bar(
                 pos2(rect.right() - controls + CONTROL_W * k as f32, rect.top()),
                 vec2(CONTROL_W, BAR_H),
             );
-            let response = ui.interact(r, Id::new(("chrome-control", kind)), Sense::click());
+            let response = ui.interact(r, Id::unique(("chrome-control", kind)), Sense::click());
             let hot = response.hovered();
             if hot {
                 let fill = if kind == "close" {
@@ -847,7 +847,7 @@ pub fn border(ctx: &egui::Context) {
     }
     let painter = ctx.layer_painter(egui::LayerId::new(
         egui::Order::Foreground,
-        Id::new("window-border"),
+        Id::unique("window-border"),
     ));
     let colour = if ctx.global_style().visuals.dark_mode {
         Color32::from_gray(70)

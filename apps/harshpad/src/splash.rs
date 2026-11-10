@@ -87,7 +87,7 @@ impl Splash {
             {
                 // The whole window: drag it by any spot. Painted straight into the window (an
                 // Area would stay hidden on its first frame, showing what's underneath).
-                let r = ui.interact(screen, Id::new("splash"), Sense::click_and_drag());
+                let r = ui.interact(screen, Id::unique("splash"), Sense::click_and_drag());
                 if r.drag_started() {
                     ctx.send_viewport_cmd(ViewportCommand::StartDrag);
                 }

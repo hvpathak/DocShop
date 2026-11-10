@@ -41,6 +41,9 @@ pub struct DocTab {
     /// Selection to apply on the next frame (bytes).
     pending: Option<Range<usize>>,
     editor_id: egui::Id,
+    /// Changes each time the editor gains focus (the IME context's generation).
+    ime_gen: u64,
+    ime_had_focus: bool,
     /// Name shown until the tab is saved (e.g. "notes.txt (copy)").
     pub name_hint: Option<String>,
     /// Restrict Editing: the text can be read and copied but not changed.
@@ -76,7 +79,7 @@ impl DocTab {
             caret: 0,
             current_match: None,
             pending: None,
-            editor_id: egui::Id::new(("doc-editor", tab_id)),
+            editor_id: egui::Id::unique(("doc-editor", tab_id)),
             name_hint: None,
             read_only: false,
             anchor: 0,
@@ -84,6 +87,8 @@ impl DocTab {
             layout: None,
             rev: 1,
             laid_rev: 0,
+            ime_gen: 0,
+            ime_had_focus: false,
             scroll_to_caret: false,
             preedit: String::new(),
         }
@@ -783,6 +788,10 @@ impl DocTab {
                 }
 
                 let focused = ctx.memory(|m| m.has_focus(self.editor_id));
+                if focused && !self.ime_had_focus {
+                    self.ime_gen += 1;
+                }
+                self.ime_had_focus = focused;
                 if focused {
                     ctx.memory_mut(|m| {
                         m.set_focus_lock_filter(
@@ -812,13 +821,15 @@ impl DocTab {
                 page::paint(ui, &layout, &at, self.sel.clone(), caret);
                 if let Some(r) = page::caret_rect(&layout, &at, self.caret) {
                     if focused {
+                        let (owner, generation) = (self.editor_id, self.ime_gen);
                         ctx.output_mut(|o| {
-                            o.ime = Some(egui::output::IMEOutput {
+                            o.ime = Some(egui::output::IMEOutput::new(
+                                owner,
+                                generation,
+                                Default::default(),
                                 rect,
-                                cursor_rect: r,
-                                purpose: Default::default(),
-                                should_interrupt_composition: false,
-                            });
+                                r,
+                            ));
                         });
                     }
                     if std::mem::take(&mut self.scroll_to_caret) {

@@ -577,7 +577,11 @@ impl StudioApp {
         let (left, right, divider) = crate::split::panes(full, ratio);
         // The divider between the halves: drag it to resize them.
         let d = ui
-            .interact(divider, egui::Id::new("split-divider"), egui::Sense::drag())
+            .interact(
+                divider,
+                egui::Id::unique("split-divider"),
+                egui::Sense::drag(),
+            )
             .on_hover_text("Drag to resize · double-click to make both halves equal");
         if d.hovered() || d.dragged() {
             ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
@@ -680,7 +684,7 @@ impl StudioApp {
             let response = ui
                 .interact(
                     hit,
-                    egui::Id::new(("split-close", index)),
+                    egui::Id::unique(("split-close", index)),
                     egui::Sense::click(),
                 )
                 .on_hover_text("Take this side out of the split view (the tab stays open)");
@@ -1349,7 +1353,7 @@ impl StudioApp {
                     "tab-search",
                 ]
                 .iter()
-                .any(|name| f == egui::Id::new(name))
+                .any(|name| f == egui::Id::unique(name))
             });
         let mut bound: Vec<_> = CATALOG
             .iter()
@@ -1691,11 +1695,11 @@ impl StudioApp {
                 // Search every command, like the search box of a word processor.
                 let search = ui.add(
                     egui::TextEdit::singleline(&mut self.command_search)
-                        .id(egui::Id::new("command-search"))
+                        .id(egui::Id::unique("command-search"))
                         .hint_text("🔍  Search commands")
                         .desired_width(240.0),
                 );
-                let popup = egui::Id::new("command-search-results");
+                let popup = egui::Id::unique("command-search-results");
                 if search.has_focus() && !self.command_search.is_empty() {
                     egui::Popup::open_id(ui.ctx(), popup);
                 }
@@ -1952,7 +1956,7 @@ impl StudioApp {
             ui.label("Find:");
             let needle = ui.add(
                 egui::TextEdit::singleline(&mut self.find.options.needle)
-                    .id(egui::Id::new("find-needle"))
+                    .id(egui::Id::unique("find-needle"))
                     .desired_width(220.0),
             );
             if std::mem::take(&mut self.find.focus_needle) {
@@ -1983,7 +1987,7 @@ impl StudioApp {
                 ui.label("Replace:");
                 ui.add(
                     egui::TextEdit::singleline(&mut self.find.options.replacement)
-                        .id(egui::Id::new("find-replacement"))
+                        .id(egui::Id::unique("find-replacement"))
                         .desired_width(200.0),
                 );
                 if ui.button("Replace").clicked() {
@@ -2738,7 +2742,7 @@ impl eframe::App for StudioApp {
         chrome::border(ctx);
     }
 
-    fn on_exit(&mut self) {
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.settings.save();
         for tab in &mut self.tabs {
             if let Content::Writer(w) = &mut tab.content {
